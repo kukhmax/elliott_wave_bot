@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import sys
+import asyncio
 
 from elliott_bot.interfaces.telegram.bot_runtime import TelegramBotRuntime
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
+from elliott_bot.services.application_context import ApplicationContext
 from elliott_bot.services.settings_service import SettingsService
 from elliott_bot.services.signal_history_service import SignalHistoryService
 from elliott_bot.services.runtime_state_service import RuntimeStateService
@@ -16,7 +17,13 @@ from elliott_bot.storage.file_storage import FileStorage
 
 
 def main() -> None:
-    """Start the application bootstrap process."""
+    """Start the synchronous application bootstrap wrapper."""
+
+    asyncio.run(run())
+
+
+async def run() -> None:
+    """Start the application bootstrap process and polling when configured."""
 
     base_settings = get_settings()
     configure_logging(base_settings.log_level)
@@ -45,6 +52,17 @@ def main() -> None:
     watchlist_service.save(watchlist_state)
     signal_history = signal_history_service.load()
     signal_history_service.save(signal_history)
+    app_context = ApplicationContext(
+        settings=settings,
+        runtime_state=state,
+        watchlist_state=watchlist_state,
+        signal_history=signal_history,
+        settings_service=settings_service,
+        runtime_state_service=runtime_state_service,
+        watchlist_service=watchlist_service,
+        signal_history_service=signal_history_service,
+        monitoring_coordinator=coordinator,
+    )
 
     telegram_runtime = TelegramBotRuntime(settings.telegram_bot_token)
     bot = telegram_runtime.create_bot()
@@ -62,5 +80,6 @@ def main() -> None:
         logger.warning("Telegram bot token is not configured. Exiting after bootstrap.")
         return
 
-    logger.info("Telegram runtime is configured. Polling is not implemented in the current step yet.")
-    sys.exit(0)
+    dispatcher = telegram_runtime.create_dispatcher(app_context)
+    logger.info("Telegram runtime is configured. Starting polling.")
+    await dispatcher.start_polling(bot)

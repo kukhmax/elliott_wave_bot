@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from aiogram import Bot
+from aiogram import Bot, Dispatcher
+
+from elliott_bot.interfaces.telegram.handlers import router
+from elliott_bot.services.application_context import ApplicationContext
 
 from elliott_bot.shared.logging import get_logger
 
@@ -33,3 +36,12 @@ class TelegramBotRuntime:
             self._logger.info("Telegram bot client created.")
 
         return self._bot
+
+    def create_dispatcher(self, app_context: ApplicationContext) -> Dispatcher:
+        """Create a dispatcher preloaded with the shared application context."""
+
+        dispatcher = Dispatcher()
+        dispatcher["app_context"] = app_context
+        dispatcher.include_router(router)
+        self._logger.info("Telegram dispatcher created and router registered.")
+        return dispatcher

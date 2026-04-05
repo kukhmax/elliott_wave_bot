@@ -472,3 +472,30 @@
 
 - В проекте появился рабочий слой постоянного состояния для настроек, watchlist и истории сигналов.
 - Следующий кодовый шаг логично посвятить реализации Telegram-слоя управления: dispatcher, команды, Reply Keyboard и базовые пользовательские сценарии.
+
+## 18. Реализация. Шаг 3
+
+### Статус
+
+- Третий шаг реализации выполнен.
+
+### Что реализовано
+
+- Добавлен Telegram-слой управления с Reply Keyboard и базовыми пользовательскими сценариями.
+- Реализованы клавиатуры и форматтеры в [keyboards.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/keyboards.py) и [presenters.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/presenters.py).
+- Реализованы FSM-состояния и Telegram-обработчики в [states.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/states.py) и [handlers.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/handlers.py).
+- Добавлен общий [application_context.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/application_context.py) для совместной работы Telegram-слоя и сервисов состояния.
+- Обновлены [bot_runtime.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/bot_runtime.py) и [app.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/app.py): теперь при наличии токена создаются dispatcher, router и запускается polling.
+- Добавлены тесты для Telegram UI и application context в [test_telegram_ui.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_telegram_ui.py).
+
+### Ключевые решения шага
+
+- Главное управление построено через Reply Keyboard в соответствии с ранее зафиксированной логикой.
+- Реализованы рабочие сценарии: `/start`, `Старт`, `Стоп`, `Статус`, `Список пар`, `Добавить пару`, `Изменить таймфрейм`, `Удалить пару`, `Настройки`, `Отмена`.
+- Для сценариев без готового аналитического слоя добавлен понятный пользовательский ответ вместо молчания.
+- Для новых пар по умолчанию используется таймфрейм `5m`, если пользователь явно не указал другое значение.
+
+### Результат шага
+
+- В проекте появился реальный Telegram-слой управления поверх существующего состояния и bootstrap.
+- Следующий кодовый шаг логично посвятить реализации рыночного data layer: провайдеры, маппинг тикеров, нормализация свечей и заготовка загрузки данных.
