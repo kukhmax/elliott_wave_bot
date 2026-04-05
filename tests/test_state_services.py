@@ -36,6 +36,11 @@ def build_settings(storage_path: Path) -> AppSettings:
         MAX_AUTO_PAIRS=20,
         SEARCH_MODE="standard",
         EXTREMUM_SENSITIVITY="standard",
+        CMC_API_KEY="cmc-test-key",
+        DEFAULT_QUOTE_ASSET="USDT",
+        REQUEST_TIMEOUT_SECONDS=10,
+        RETRY_COUNT=2,
+        RATE_LIMIT_DELAY_MS=250,
         NOTIFICATIONS_ENABLED=True,
         MANUAL_CHECK_EXPLAIN_REJECTIONS=True,
         STORAGE_PATH=str(storage_path),
@@ -55,6 +60,13 @@ def test_settings_service_roundtrip(tmp_path: Path) -> None:
 
     assert restored.default_timeframe == "5m"
     assert restored.exchange == "binance_spot"
+    assert restored.telegram_bot_token == "test-token"
+    assert restored.cmc_api_key == "cmc-test-key"
+
+    payload = storage.read_json(storage.settings_path, {})
+
+    assert "telegram_bot_token" not in payload
+    assert "cmc_api_key" not in payload
 
 
 def test_watchlist_service_roundtrip(tmp_path: Path) -> None:
