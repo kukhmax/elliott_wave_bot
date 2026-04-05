@@ -446,3 +446,29 @@
 
 - Проект теперь можно запускать как Python-пакет и использовать как основу для реализации следующих модулей.
 - Следующий кодовый шаг логично посвятить доменным моделям приложения и базовой реализации Settings/Watchlist/Persistence слоя поверх созданного каркаса.
+
+## 17. Реализация. Шаг 2
+
+### Статус
+
+- Второй шаг реализации выполнен.
+
+### Что реализовано
+
+- Расширены доменные модели в [models.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/domain/models.py): добавлены `TradingPair`, `PairMonitoringConfig`, `WatchlistState`, `SignalRecord` и соответствующие enum-типы.
+- Расширено файловое хранилище в [file_storage.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/storage/file_storage.py): добавлены отдельные пути для `settings`, `watchlist` и `signal_history`, а также поддержка универсальной JSON-записи и чтения.
+- Реализованы сервисы [settings_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/settings_service.py), [watchlist_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/watchlist_service.py) и [signal_history_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/signal_history_service.py).
+- Обновлен bootstrap приложения в [app.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/app.py): теперь при старте загружаются и сохраняются настройки, watchlist, история сигналов и runtime-состояние.
+- Добавлены первые автоматические тесты для persistent state слоя в [test_state_services.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_state_services.py).
+
+### Ключевые решения шага
+
+- Для первой версии сохранено файловое хранение с простыми JSON-структурами.
+- Дефолтный таймфрейм `5m` теперь проходит через слой настроек и автоматически используется для новых пар без явного таймфрейма.
+- Логирование добавлено для загрузки, сохранения и изменения настроек, watchlist и истории сигналов.
+- Структура подготовлена так, чтобы не мешать будущему переходу к более сложному persistence-слою.
+
+### Результат шага
+
+- В проекте появился рабочий слой постоянного состояния для настроек, watchlist и истории сигналов.
+- Следующий кодовый шаг логично посвятить реализации Telegram-слоя управления: dispatcher, команды, Reply Keyboard и базовые пользовательские сценарии.
