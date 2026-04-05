@@ -14,6 +14,7 @@ from elliott_bot.interfaces.telegram.keyboards import (
     build_timeframe_keyboard,
 )
 from elliott_bot.interfaces.telegram.presenters import (
+    format_manual_check_result,
     format_settings_text,
     format_status_text,
     format_watchlist_text,
@@ -22,7 +23,12 @@ from elliott_bot.interfaces.telegram.presenters import (
     normalize_symbol,
     normalize_timeframe,
 )
-from elliott_bot.interfaces.telegram.states import AddPairStates, ChangeTimeframeStates, DeletePairStates
+from elliott_bot.interfaces.telegram.states import (
+    AddPairStates,
+    ChangeTimeframeStates,
+    DeletePairStates,
+    ManualCheckStates,
+)
 from elliott_bot.services.application_context import ApplicationContext
 from elliott_bot.shared.logging import get_logger
 
@@ -109,14 +115,50 @@ async def handle_settings(message: Message, app_context: ApplicationContext) -> 
 
 
 @router.message(F.text == "Проверить пару")
-async def handle_manual_check_placeholder(message: Message, app_context: ApplicationContext) -> None:
-    """Explain that analytical manual checks will be added in a later step."""
+async def handle_manual_check_entry(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
+    """Start the manual check flow for a single trading pair."""
 
+    await state.set_state(ManualCheckStates.waiting_for_symbol)
     await message.answer(
-        "🔎 Ручная проверка пары будет подключена после интеграции аналитического конвейера.\n"
-        "🧩 На текущем этапе реализован слой управления и состояния.",
-        reply_markup=_main_menu(app_context),
+        "🔎 Введите торговую пару для ручной проверки, например BTCUSDT или BTC/USDT.",
+        reply_markup=build_cancel_keyboard(),
     )
+
+
+@router.message(ManualCheckStates.waiting_for_symbol)
+async def handle_manual_check_symbol(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
+    """Capture the symbol used for the manual market check."""
+
+    symbol = normalize_symbol(message.text or "")
+    if not symbol:
+        await message.answer("⚠️ Не удалось распознать пару. Попробуйте еще раз.", reply_markup=build_cancel_keyboard())
+        return
+
+    await state.update_data(symbol=symbol)
+    await state.set_state(ManualCheckStates.waiting_for_timeframe)
+    await message.answer(
+        f"✅ Пара {symbol} распознана. Выберите таймфрейм для проверки или используйте {app_context.settings.default_timeframe}.",
+        reply_markup=build_timeframe_keyboard(),
+    )
+
+
+@router.message(ManualCheckStates.waiting_for_timeframe)
+async def handle_manual_check_timeframe(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
+    """Run the manual check once the symbol and timeframe are available."""
+
+    timeframe = normalize_timeframe(message.text or "", app_context.settings.default_timeframe)
+    if not is_supported_timeframe(timeframe):
+        await message.answer("⚠️ Таймфрейм не поддерживается. Выберите один из предложенных.", reply_markup=build_timeframe_keyboard())
+        return
+
+    state_data = await state.get_data()
+    symbol = state_data["symbol"]
+    await state.clear()
+
+    await message.answer("⏳ Загружаю данные и запускаю базовый волновой анализ...", reply_markup=_main_menu(app_context))
+    result = await app_context.manual_check_service.run(symbol=symbol, timeframe=timeframe)
+    LOGGER.info("Manual check completed for %s on %s with status %s.", symbol, timeframe, result.status)
+    await message.answer(format_manual_check_result(result), reply_markup=_main_menu(app_context))
 
 
 @router.message(F.text == "Добавить пару")

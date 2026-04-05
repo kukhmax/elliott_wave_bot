@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from elliott_bot.domain.models import PairStatus
 from elliott_bot.services.application_context import ApplicationContext
+from elliott_bot.services.manual_check_service import ManualCheckResult
 
 
 SUPPORTED_TIMEFRAMES = {"1m", "5m", "15m", "1h", "1d"}
@@ -88,4 +89,27 @@ def format_settings_text(context: ApplicationContext) -> str:
         f"📐 Чувствительность экстремумов: {context.settings.extremum_sensitivity}\n"
         f"🔔 Уведомления: {context.settings.notifications_enabled}\n"
         f"🏦 Биржа: {context.settings.exchange}"
+    )
+
+
+def format_manual_check_result(result: ManualCheckResult) -> str:
+    """Build a human-readable Telegram response for a manual check result."""
+
+    if result.best_candidate is None:
+        return (
+            f"🔎 Проверка пары: {result.symbol}\n"
+            f"⏱ Таймфрейм: {result.timeframe}\n"
+            f"📉 Статус: {result.status}\n"
+            f"⚠️ Итог: {result.summary}"
+        )
+
+    candidate = result.best_candidate
+    return (
+        f"🔎 Проверка пары: {result.symbol}\n"
+        f"⏱ Таймфрейм: {result.timeframe}\n"
+        f"📈 Статус: {result.status}\n"
+        f"🧭 Направление: {candidate.direction.value}\n"
+        f"🌊 Кандидат: {candidate.candidate_id}\n"
+        f"📌 Примечания: {', '.join(candidate.structural_notes)}\n"
+        f"✅ Итог: {result.summary}"
     )

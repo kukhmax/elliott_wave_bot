@@ -9,12 +9,16 @@ from elliott_bot.integrations.coinmarketcap_provider import CoinMarketCapProvide
 from elliott_bot.interfaces.telegram.bot_runtime import TelegramBotRuntime
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
 from elliott_bot.services.application_context import ApplicationContext
+from elliott_bot.services.extremum_detection_service import ExtremumDetectionService
+from elliott_bot.services.manual_check_service import ManualCheckService
 from elliott_bot.services.market_data_service import MarketDataService
 from elliott_bot.services.market_universe_service import MarketUniverseService
+from elliott_bot.services.series_preparation_service import SeriesPreparationService
 from elliott_bot.services.settings_service import SettingsService
 from elliott_bot.services.signal_history_service import SignalHistoryService
 from elliott_bot.services.runtime_state_service import RuntimeStateService
 from elliott_bot.services.symbol_mapping_service import SymbolMappingService
+from elliott_bot.services.wave_analysis_service import WaveAnalysisService
 from elliott_bot.services.watchlist_service import WatchlistService
 from elliott_bot.shared.config import get_settings
 from elliott_bot.shared.logging import configure_logging, get_logger
@@ -55,6 +59,16 @@ async def run() -> None:
     market_data_provider = BinanceMarketDataProvider(settings)
     market_universe_service = MarketUniverseService(market_universe_provider, symbol_mapping_service, storage)
     market_data_service = MarketDataService(market_data_provider, storage)
+    series_preparation_service = SeriesPreparationService()
+    extremum_detection_service = ExtremumDetectionService()
+    wave_analysis_service = WaveAnalysisService()
+    manual_check_service = ManualCheckService(
+        settings=settings,
+        market_data_service=market_data_service,
+        series_preparation_service=series_preparation_service,
+        extremum_detection_service=extremum_detection_service,
+        wave_analysis_service=wave_analysis_service,
+    )
     coordinator = MonitoringCoordinator(runtime_state_service, storage)
 
     state = coordinator.bootstrap_state()
@@ -75,6 +89,10 @@ async def run() -> None:
         symbol_mapping_service=symbol_mapping_service,
         market_universe_service=market_universe_service,
         market_data_service=market_data_service,
+        series_preparation_service=series_preparation_service,
+        extremum_detection_service=extremum_detection_service,
+        wave_analysis_service=wave_analysis_service,
+        manual_check_service=manual_check_service,
     )
 
     telegram_runtime = TelegramBotRuntime(settings.telegram_bot_token)
@@ -89,7 +107,7 @@ async def run() -> None:
         settings.market_universe_provider,
         settings.market_data_provider,
     )
-    logger.info("Persistent state services and market data layer are ready for the next implementation step.")
+    logger.info("Persistent state services, market data layer and early analysis pipeline are ready.")
 
     if not telegram_runtime.configured:
         logger.warning("Telegram bot token is not configured. Exiting after bootstrap.")

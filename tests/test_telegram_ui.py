@@ -17,12 +17,16 @@ from elliott_bot.interfaces.telegram.presenters import (
 )
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
 from elliott_bot.services.application_context import ApplicationContext
+from elliott_bot.services.extremum_detection_service import ExtremumDetectionService
+from elliott_bot.services.manual_check_service import ManualCheckService
 from elliott_bot.services.market_data_service import MarketDataService
 from elliott_bot.services.market_universe_service import MarketUniverseService
+from elliott_bot.services.series_preparation_service import SeriesPreparationService
 from elliott_bot.services.runtime_state_service import RuntimeStateService
 from elliott_bot.services.settings_service import SettingsService
 from elliott_bot.services.signal_history_service import SignalHistoryService
 from elliott_bot.services.symbol_mapping_service import SymbolMappingService
+from elliott_bot.services.wave_analysis_service import WaveAnalysisService
 from elliott_bot.services.watchlist_service import WatchlistService
 from elliott_bot.shared.config import AppSettings
 from elliott_bot.storage.file_storage import FileStorage
@@ -64,6 +68,16 @@ def build_context(tmp_path: Path) -> ApplicationContext:
         storage,
     )
     market_data_service = MarketDataService(BinanceMarketDataProvider(settings), storage)
+    series_preparation_service = SeriesPreparationService()
+    extremum_detection_service = ExtremumDetectionService()
+    wave_analysis_service = WaveAnalysisService()
+    manual_check_service = ManualCheckService(
+        settings=settings,
+        market_data_service=market_data_service,
+        series_preparation_service=series_preparation_service,
+        extremum_detection_service=extremum_detection_service,
+        wave_analysis_service=wave_analysis_service,
+    )
     coordinator = MonitoringCoordinator(runtime_state_service, storage)
 
     return ApplicationContext(
@@ -79,6 +93,10 @@ def build_context(tmp_path: Path) -> ApplicationContext:
         symbol_mapping_service=symbol_mapping_service,
         market_universe_service=market_universe_service,
         market_data_service=market_data_service,
+        series_preparation_service=series_preparation_service,
+        extremum_detection_service=extremum_detection_service,
+        wave_analysis_service=wave_analysis_service,
+        manual_check_service=manual_check_service,
     )
 
 
@@ -96,6 +114,7 @@ def test_timeframe_keyboard_contains_default_shortcut() -> None:
     """Timeframe keyboard should expose the default-timeframe shortcut."""
 
     keyboard = build_timeframe_keyboard()
+    assert keyboard.keyboard[0][0].text == "1m"
     assert keyboard.keyboard[2][0].text == "Использовать 5m"
 
 

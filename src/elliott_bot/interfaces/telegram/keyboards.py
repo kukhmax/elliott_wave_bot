@@ -26,8 +26,8 @@ def build_timeframe_keyboard() -> ReplyKeyboardMarkup:
 
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="5m"), KeyboardButton(text="15m"), KeyboardButton(text="1h")],
-            [KeyboardButton(text="4h"), KeyboardButton(text="1d")],
+            [KeyboardButton(text="1m"), KeyboardButton(text="5m"), KeyboardButton(text="15m")],
+            [KeyboardButton(text="1h"), KeyboardButton(text="1d")],
             [KeyboardButton(text="Использовать 5m"), KeyboardButton(text="Отмена")],
         ],
         resize_keyboard=True,

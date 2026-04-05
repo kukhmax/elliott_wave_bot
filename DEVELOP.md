@@ -527,3 +527,31 @@
 
 - В проекте появился базовый market data layer с реальными интеграционными точками и нормализованным контрактом данных.
 - Следующий кодовый шаг логично посвятить реализации автоподбора рынка, загрузки данных в пользовательские сценарии и подготовке аналитического конвейера поиска экстремумов.
+
+## 20. Реализация. Шаг 5
+
+### Статус
+
+- Пятый шаг реализации выполнен.
+
+### Что реализовано
+
+- Реализован ранний аналитический конвейер для подготовки и анализа свечных данных перед полной валидацией по Фибоначчи.
+- Расширены доменные модели в [models.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/domain/models.py): добавлены `ExtremumPoint`, `WavePointSet`, `WaveCandidate`, `WaveAnalysisResult`, `OHLCVBar`, `MarketSeries` и связанные enum-типы.
+- Добавлены сервисы [series_preparation_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/series_preparation_service.py), [extremum_detection_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/extremum_detection_service.py), [wave_analysis_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/wave_analysis_service.py) и [manual_check_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/manual_check_service.py).
+- Обновлены [application_context.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/application_context.py) и [app.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/app.py): early analysis pipeline теперь создается в bootstrap и доступен Telegram-слою.
+- Реализован реальный сценарий ручной проверки пары в [handlers.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/handlers.py) через пошаговый ввод пары и таймфрейма с запуском базового анализа.
+- Обновлены [presenters.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/presenters.py), [states.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/states.py) и [keyboards.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/keyboards.py): добавлен вывод результата ручной проверки и синхронизация клавиатуры с поддерживаемыми таймфреймами.
+- Добавлены тесты [test_wave_analysis_pipeline.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_wave_analysis_pipeline.py) и обновлены [test_telegram_ui.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_telegram_ui.py).
+
+### Ключевые решения шага
+
+- Анализ построен поэтапно: подготовка свечей, поиск локальных экстремумов, очистка swing-последовательности, построение окон P0-P5 и ранняя структурная фильтрация.
+- Для ручной проверки пользователь теперь получает реальный аналитический ответ вместо заглушки.
+- Результат ручной проверки пока помечается как ранний `probable`, потому что слой полной Fibonacci-валидации еще не подключен к runtime.
+- Список поддерживаемых таймфреймов синхронизирован с интерфейсом и сейчас включает `1m`, `5m`, `15m`, `1h`, `1d`.
+
+### Результат шага
+
+- В проекте появился рабочий каркас базового wave-analysis pipeline и ручной аналитической проверки пары.
+- Следующий кодовый шаг логично посвятить полной валидации пропорций и Фибоначчи, чтобы переводить ранние кандидаты в более надежные статусы перед отправкой сигналов.

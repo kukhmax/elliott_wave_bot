@@ -53,6 +53,20 @@ class MarketDataErrorCategory(StrEnum):
     INSUFFICIENT_HISTORY = "insufficient_history"
 
 
+class ExtremumKind(StrEnum):
+    """Represents the direction of a detected local extremum."""
+
+    HIGH = "high"
+    LOW = "low"
+
+
+class WaveDirection(StrEnum):
+    """Represents the direction of a candidate Elliott structure."""
+
+    LONG = "long"
+    SHORT = "short"
+
+
 @dataclass(slots=True)
 class RuntimeState:
     """Persistent runtime state stored between restarts."""
@@ -284,6 +298,109 @@ class MarketDataError:
             "retryable": self.retryable,
             "context": self.context,
         }
+
+
+@dataclass(slots=True)
+class ExtremumPoint:
+    """Represents a normalized local extremum derived from OHLCV bars."""
+
+    index: int
+    timestamp: int
+    price: float
+    kind: ExtremumKind
+    strength: float
+    bar_distance_from_previous: int
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the extremum point into a JSON-serializable dictionary."""
+
+        payload = asdict(self)
+        payload["kind"] = self.kind.value
+        return payload
+
+
+@dataclass(slots=True)
+class WavePointSet:
+    """Represents the six pivot points used by a wave candidate."""
+
+    p0: ExtremumPoint
+    p1: ExtremumPoint
+    p2: ExtremumPoint
+    p3: ExtremumPoint
+    p4: ExtremumPoint
+    p5: ExtremumPoint
+    direction: WaveDirection
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the wave point set into a JSON-serializable dictionary."""
+
+        return {
+            "p0": self.p0.to_dict(),
+            "p1": self.p1.to_dict(),
+            "p2": self.p2.to_dict(),
+            "p3": self.p3.to_dict(),
+            "p4": self.p4.to_dict(),
+            "p5": self.p5.to_dict(),
+            "direction": self.direction.value,
+        }
+
+
+@dataclass(slots=True)
+class WaveCandidate:
+    """Represents a candidate five-wave structure after early filtering."""
+
+    candidate_id: str
+    symbol: str
+    timeframe: str
+    direction: WaveDirection
+    points: WavePointSet
+    length_wave1: float
+    length_wave2: float
+    length_wave3: float
+    length_wave4: float
+    length_wave5: float
+    source_extremums: list[ExtremumPoint]
+    structural_notes: list[str] = field(default_factory=list)
+    rejection_reasons: list[str] = field(default_factory=list)
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the wave candidate into a JSON-serializable dictionary."""
+
+        return {
+            "candidate_id": self.candidate_id,
+            "symbol": self.symbol,
+            "timeframe": self.timeframe,
+            "direction": self.direction.value,
+            "points": self.points.to_dict(),
+            "length_wave1": self.length_wave1,
+            "length_wave2": self.length_wave2,
+            "length_wave3": self.length_wave3,
+            "length_wave4": self.length_wave4,
+            "length_wave5": self.length_wave5,
+            "source_extremums": [point.to_dict() for point in self.source_extremums],
+            "structural_notes": self.structural_notes,
+            "rejection_reasons": self.rejection_reasons,
+            "generated_at": self.generated_at,
+        }
+
+
+@dataclass(slots=True)
+class WaveAnalysisResult:
+    """Represents the full output of the early wave-analysis pipeline."""
+
+    symbol: str
+    timeframe: str
+    candidates: list[WaveCandidate]
+    rejected_windows: list[dict[str, Any]]
+    extremums: list[ExtremumPoint]
+    analyzed_bars: int
+
+    @property
+    def has_candidates(self) -> bool:
+        """Return whether the analysis produced at least one valid candidate."""
+
+        return bool(self.candidates)
 
 
 @dataclass(slots=True)

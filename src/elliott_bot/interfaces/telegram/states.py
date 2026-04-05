@@ -21,3 +21,10 @@ class DeletePairStates(StatesGroup):
     """Conversation states used while removing a pair from the watchlist."""
 
     waiting_for_symbol = State()
+
+
+class ManualCheckStates(StatesGroup):
+    """Conversation states used while running a manual analytical check."""
+
+    waiting_for_symbol = State()
+    waiting_for_timeframe = State()
