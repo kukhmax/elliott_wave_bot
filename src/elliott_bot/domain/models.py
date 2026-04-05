@@ -41,6 +41,18 @@ class SignalStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class MarketDataErrorCategory(StrEnum):
+    """Represents structured categories returned by the market data layer."""
+
+    NETWORK = "network"
+    TIMEOUT = "timeout"
+    RATE_LIMIT = "rate_limit"
+    INVALID_SYMBOL = "invalid_symbol"
+    EMPTY_RESPONSE = "empty_response"
+    INVALID_RESPONSE = "invalid_response"
+    INSUFFICIENT_HISTORY = "insufficient_history"
+
+
 @dataclass(slots=True)
 class RuntimeState:
     """Persistent runtime state stored between restarts."""
@@ -210,6 +222,68 @@ class SignalRecord:
         payload = asdict(self)
         payload["status"] = self.status.value
         return payload
+
+
+@dataclass(slots=True)
+class OHLCVBar:
+    """Represents a normalized market candle."""
+
+    open_time: int
+    close_time: int
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+    symbol: str
+    timeframe: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the candle into a JSON-serializable dictionary."""
+
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class MarketSeries:
+    """Represents a normalized candle series returned by a market provider."""
+
+    symbol: str
+    timeframe: str
+    bars: list[OHLCVBar]
+    loaded_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    source: str = "unknown"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the series into a JSON-serializable dictionary."""
+
+        return {
+            "symbol": self.symbol,
+            "timeframe": self.timeframe,
+            "bars": [bar.to_dict() for bar in self.bars],
+            "loaded_at": self.loaded_at,
+            "source": self.source,
+        }
+
+
+@dataclass(slots=True)
+class MarketDataError:
+    """Represents a structured market data failure."""
+
+    category: MarketDataErrorCategory
+    message: str
+    retryable: bool
+    context: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the error into a JSON-serializable dictionary."""
+
+        return {
+            "category": self.category.value,
+            "message": self.message,
+            "retryable": self.retryable,
+            "context": self.context,
+        }
 
 
 @dataclass(slots=True)

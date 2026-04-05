@@ -56,7 +56,7 @@ async def handle_cancel(message: Message, app_context: ApplicationContext, state
     """Cancel the active multi-step scenario and return to the main menu."""
 
     await state.clear()
-    await message.answer("Текущий сценарий отменен.", reply_markup=_main_menu(app_context))
+    await message.answer("↩️ Текущий сценарий отменен.", reply_markup=_main_menu(app_context))
 
 
 @router.message(F.text == "Статус")
@@ -73,10 +73,10 @@ async def handle_monitoring_start(message: Message, app_context: ApplicationCont
     app_context.start_monitoring()
     LOGGER.info("Monitoring started from Telegram command.")
     await message.answer(
-        "Мониторинг запущен.\n"
-        f"Отслеживаемых пар: {app_context.active_pairs_count}\n"
-        f"Дефолтный таймфрейм: {app_context.settings.default_timeframe}\n"
-        f"Интервал сканирования: {app_context.settings.scan_interval_seconds} сек.",
+        "🚀 Мониторинг запущен.\n"
+        f"📌 Отслеживаемых пар: {app_context.active_pairs_count}\n"
+        f"⏱ Дефолтный таймфрейм: {app_context.settings.default_timeframe}\n"
+        f"🔁 Интервал сканирования: {app_context.settings.scan_interval_seconds} сек.",
         reply_markup=_main_menu(app_context),
     )
 
@@ -88,8 +88,8 @@ async def handle_monitoring_stop(message: Message, app_context: ApplicationConte
     app_context.stop_monitoring()
     LOGGER.info("Monitoring stopped from Telegram command.")
     await message.answer(
-        "Мониторинг остановлен.\n"
-        "Список пар, настройки и история сигналов сохранены.",
+        "🛑 Мониторинг остановлен.\n"
+        "💾 Список пар, настройки и история сигналов сохранены.",
         reply_markup=_main_menu(app_context),
     )
 
@@ -113,8 +113,8 @@ async def handle_manual_check_placeholder(message: Message, app_context: Applica
     """Explain that analytical manual checks will be added in a later step."""
 
     await message.answer(
-        "Ручная проверка пары будет подключена после интеграции аналитического конвейера.\n"
-        "На текущем этапе реализован слой управления и состояния.",
+        "🔎 Ручная проверка пары будет подключена после интеграции аналитического конвейера.\n"
+        "🧩 На текущем этапе реализован слой управления и состояния.",
         reply_markup=_main_menu(app_context),
     )
 
@@ -125,7 +125,7 @@ async def handle_add_pair_entry(message: Message, app_context: ApplicationContex
 
     await state.set_state(AddPairStates.waiting_for_symbol)
     await message.answer(
-        "Введите торговую пару, например BTCUSDT или BTC/USDT.",
+        "➕ Введите торговую пару, например BTCUSDT или BTC/USDT.",
         reply_markup=build_cancel_keyboard(),
     )
     LOGGER.info("Add pair scenario started.")
@@ -137,13 +137,13 @@ async def handle_add_pair_symbol(message: Message, app_context: ApplicationConte
 
     symbol = normalize_symbol(message.text or "")
     if not symbol:
-        await message.answer("Не удалось распознать пару. Попробуйте еще раз.", reply_markup=build_cancel_keyboard())
+        await message.answer("⚠️ Не удалось распознать пару. Попробуйте еще раз.", reply_markup=build_cancel_keyboard())
         return
 
     await state.update_data(symbol=symbol)
     await state.set_state(AddPairStates.waiting_for_timeframe)
     await message.answer(
-        f"Пара {symbol} распознана. Теперь выберите таймфрейм или используйте {app_context.settings.default_timeframe}.",
+        f"✅ Пара {symbol} распознана. Теперь выберите таймфрейм или используйте {app_context.settings.default_timeframe}.",
         reply_markup=build_timeframe_keyboard(),
     )
 
@@ -154,7 +154,7 @@ async def handle_add_pair_timeframe(message: Message, app_context: ApplicationCo
 
     timeframe = normalize_timeframe(message.text or "", app_context.settings.default_timeframe)
     if not is_supported_timeframe(timeframe):
-        await message.answer("Таймфрейм не поддерживается. Выберите один из предложенных.", reply_markup=build_timeframe_keyboard())
+        await message.answer("⚠️ Таймфрейм не поддерживается. Выберите один из предложенных.", reply_markup=build_timeframe_keyboard())
         return
 
     state_data = await state.get_data()
@@ -173,7 +173,7 @@ async def handle_add_pair_timeframe(message: Message, app_context: ApplicationCo
     await state.clear()
     LOGGER.info("Trading pair %s added to the watchlist with timeframe %s.", symbol, timeframe)
     await message.answer(
-        f"Пара {symbol} добавлена.\nТаймфрейм: {timeframe}\nПара участвует в фоновом мониторинге.",
+        f"✅ Пара {symbol} добавлена.\n⏱ Таймфрейм: {timeframe}\n🛰 Пара участвует в фоновом мониторинге.",
         reply_markup=_main_menu(app_context),
     )
 
@@ -184,7 +184,7 @@ async def handle_change_timeframe_entry(message: Message, app_context: Applicati
 
     await state.set_state(ChangeTimeframeStates.waiting_for_symbol)
     await message.answer(
-        "Введите символ пары, для которой нужно изменить таймфрейм.",
+        "✏️ Введите символ пары, для которой нужно изменить таймфрейм.",
         reply_markup=build_cancel_keyboard(),
     )
 
@@ -196,12 +196,12 @@ async def handle_change_timeframe_symbol(message: Message, app_context: Applicat
     symbol = normalize_symbol(message.text or "")
     known_symbols = {pair.symbol for pair in app_context.watchlist_state.pairs if pair.status == PairStatus.ACTIVE}
     if symbol not in known_symbols:
-        await message.answer("Такой пары нет в активном списке. Сначала добавьте ее.", reply_markup=build_cancel_keyboard())
+        await message.answer("⚠️ Такой пары нет в активном списке. Сначала добавьте ее.", reply_markup=build_cancel_keyboard())
         return
 
     await state.update_data(symbol=symbol)
     await state.set_state(ChangeTimeframeStates.waiting_for_timeframe)
-    await message.answer("Выберите новый таймфрейм.", reply_markup=build_timeframe_keyboard())
+    await message.answer("⏱ Выберите новый таймфрейм.", reply_markup=build_timeframe_keyboard())
 
 
 @router.message(ChangeTimeframeStates.waiting_for_timeframe)
@@ -210,7 +210,7 @@ async def handle_change_timeframe_value(message: Message, app_context: Applicati
 
     timeframe = normalize_timeframe(message.text or "", app_context.settings.default_timeframe)
     if not is_supported_timeframe(timeframe):
-        await message.answer("Таймфрейм не поддерживается. Выберите один из предложенных.", reply_markup=build_timeframe_keyboard())
+        await message.answer("⚠️ Таймфрейм не поддерживается. Выберите один из предложенных.", reply_markup=build_timeframe_keyboard())
         return
 
     state_data = await state.get_data()
@@ -224,7 +224,7 @@ async def handle_change_timeframe_value(message: Message, app_context: Applicati
     await state.clear()
     LOGGER.info("Timeframe updated for %s to %s.", symbol, timeframe)
     await message.answer(
-        f"Таймфрейм для {symbol} обновлен на {timeframe}.",
+        f"✅ Таймфрейм для {symbol} обновлен на {timeframe}.",
         reply_markup=_main_menu(app_context),
     )
 
@@ -235,7 +235,7 @@ async def handle_delete_pair_entry(message: Message, app_context: ApplicationCon
 
     await state.set_state(DeletePairStates.waiting_for_symbol)
     await message.answer(
-        "Введите символ пары, которую нужно удалить из мониторинга.",
+        "🗑 Введите символ пары, которую нужно удалить из мониторинга.",
         reply_markup=build_cancel_keyboard(),
     )
 
@@ -252,14 +252,14 @@ async def handle_delete_pair_symbol(message: Message, app_context: ApplicationCo
             removed = True
 
     if not removed:
-        await message.answer("Такая пара не найдена в watchlist.", reply_markup=build_cancel_keyboard())
+        await message.answer("⚠️ Такая пара не найдена в watchlist.", reply_markup=build_cancel_keyboard())
         return
 
     app_context.persist_watchlist()
     await state.clear()
     LOGGER.info("Trading pair %s removed from active watchlist.", symbol)
     await message.answer(
-        f"Пара {symbol} удалена из активного мониторинга.\nИстория сигналов сохранена.",
+        f"✅ Пара {symbol} удалена из активного мониторинга.\n🗂 История сигналов сохранена.",
         reply_markup=_main_menu(app_context),
     )
 
@@ -269,6 +269,6 @@ async def handle_unknown_action(message: Message, app_context: ApplicationContex
     """Fallback for unsupported or out-of-flow user messages."""
 
     await message.answer(
-        "Команда не распознана. Используйте кнопки меню или /start для возврата в главное меню.",
+        "❓ Команда не распознана. Используйте кнопки меню или /start для возврата в главное меню.",
         reply_markup=_main_menu(app_context),
     )

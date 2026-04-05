@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import asyncio
 
+from elliott_bot.integrations.binance_provider import BinanceMarketDataProvider
+from elliott_bot.integrations.coinmarketcap_provider import CoinMarketCapProvider
 from elliott_bot.interfaces.telegram.bot_runtime import TelegramBotRuntime
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
 from elliott_bot.services.application_context import ApplicationContext
+from elliott_bot.services.market_data_service import MarketDataService
+from elliott_bot.services.market_universe_service import MarketUniverseService
 from elliott_bot.services.settings_service import SettingsService
 from elliott_bot.services.signal_history_service import SignalHistoryService
 from elliott_bot.services.runtime_state_service import RuntimeStateService
+from elliott_bot.services.symbol_mapping_service import SymbolMappingService
 from elliott_bot.services.watchlist_service import WatchlistService
 from elliott_bot.shared.config import get_settings
 from elliott_bot.shared.logging import configure_logging, get_logger
@@ -45,6 +50,11 @@ async def run() -> None:
     runtime_state_service = RuntimeStateService(storage)
     watchlist_service = WatchlistService(storage)
     signal_history_service = SignalHistoryService(storage)
+    symbol_mapping_service = SymbolMappingService(settings, storage)
+    market_universe_provider = CoinMarketCapProvider(settings)
+    market_data_provider = BinanceMarketDataProvider(settings)
+    market_universe_service = MarketUniverseService(market_universe_provider, symbol_mapping_service, storage)
+    market_data_service = MarketDataService(market_data_provider, storage)
     coordinator = MonitoringCoordinator(runtime_state_service, storage)
 
     state = coordinator.bootstrap_state()
@@ -62,19 +72,24 @@ async def run() -> None:
         watchlist_service=watchlist_service,
         signal_history_service=signal_history_service,
         monitoring_coordinator=coordinator,
+        symbol_mapping_service=symbol_mapping_service,
+        market_universe_service=market_universe_service,
+        market_data_service=market_data_service,
     )
 
     telegram_runtime = TelegramBotRuntime(settings.telegram_bot_token)
     bot = telegram_runtime.create_bot()
 
     logger.info(
-        "Bootstrap completed. monitoring_status=%s telegram_configured=%s watchlist_pairs=%s signal_history=%s",
+        "Bootstrap completed. monitoring_status=%s telegram_configured=%s watchlist_pairs=%s signal_history=%s market_universe_provider=%s market_data_provider=%s",
         state.monitoring_status.value,
         bot is not None,
         len(watchlist_state.pairs),
         len(signal_history),
+        settings.market_universe_provider,
+        settings.market_data_provider,
     )
-    logger.info("Persistent state services are ready for the next implementation step.")
+    logger.info("Persistent state services and market data layer are ready for the next implementation step.")
 
     if not telegram_runtime.configured:
         logger.warning("Telegram bot token is not configured. Exiting after bootstrap.")

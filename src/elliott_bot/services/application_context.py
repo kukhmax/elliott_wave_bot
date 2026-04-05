@@ -6,9 +6,12 @@ from dataclasses import dataclass
 
 from elliott_bot.domain.models import PairStatus, RuntimeState, SignalRecord, WatchlistState
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
+from elliott_bot.services.market_data_service import MarketDataService
+from elliott_bot.services.market_universe_service import MarketUniverseService
 from elliott_bot.services.runtime_state_service import RuntimeStateService
 from elliott_bot.services.settings_service import SettingsService
 from elliott_bot.services.signal_history_service import SignalHistoryService
+from elliott_bot.services.symbol_mapping_service import SymbolMappingService
 from elliott_bot.services.watchlist_service import WatchlistService
 from elliott_bot.shared.config import AppSettings
 
@@ -26,6 +29,9 @@ class ApplicationContext:
     watchlist_service: WatchlistService
     signal_history_service: SignalHistoryService
     monitoring_coordinator: MonitoringCoordinator
+    symbol_mapping_service: SymbolMappingService
+    market_universe_service: MarketUniverseService
+    market_data_service: MarketDataService
 
     @property
     def active_pairs_count(self) -> int:

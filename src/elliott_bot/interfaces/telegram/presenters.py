@@ -6,7 +6,7 @@ from elliott_bot.domain.models import PairStatus
 from elliott_bot.services.application_context import ApplicationContext
 
 
-SUPPORTED_TIMEFRAMES = {"5m", "15m", "1h", "4h", "1d"}
+SUPPORTED_TIMEFRAMES = {"1m", "5m", "15m", "1h", "1d"}
 
 
 def normalize_symbol(raw_value: str) -> str:
@@ -34,11 +34,11 @@ def format_welcome_text(context: ApplicationContext) -> str:
     """Build the welcome message shown on the first interaction."""
 
     return (
-        "Elliott Bot готов к работе.\n"
-        "Бот ищет классическую 5-волновую структуру Эллиотта.\n"
-        f"Дефолтный таймфрейм старта: {context.settings.default_timeframe}.\n"
-        f"Текущее состояние мониторинга: {context.runtime_state.monitoring_status.value}.\n"
-        "Основное управление доступно через нижнюю клавиатуру."
+        "🤖 Elliott Bot готов к работе.\n"
+        "📈 Бот ищет классическую 5-волновую структуру Эллиотта.\n"
+        f"⏱ Дефолтный таймфрейм старта: {context.settings.default_timeframe}.\n"
+        f"🛰 Текущее состояние мониторинга: {context.runtime_state.monitoring_status.value}.\n"
+        "⌨️ Основное управление доступно через нижнюю клавиатуру."
     )
 
 
@@ -47,13 +47,13 @@ def format_status_text(context: ApplicationContext) -> str:
 
     last_error = context.runtime_state.last_error or "нет"
     return (
-        "Статус бота:\n"
-        f"- Мониторинг: {context.runtime_state.monitoring_status.value}\n"
-        f"- Отслеживаемых пар: {context.active_pairs_count}\n"
-        f"- Дефолтный таймфрейм: {context.settings.default_timeframe}\n"
-        f"- Интервал сканирования: {context.settings.scan_interval_seconds} сек.\n"
-        f"- Биржа: {context.settings.exchange}\n"
-        f"- Последняя ошибка: {last_error}"
+        "📊 Статус бота:\n"
+        f"🛰 Мониторинг: {context.runtime_state.monitoring_status.value}\n"
+        f"📌 Отслеживаемых пар: {context.active_pairs_count}\n"
+        f"⏱ Дефолтный таймфрейм: {context.settings.default_timeframe}\n"
+        f"🔁 Интервал сканирования: {context.settings.scan_interval_seconds} сек.\n"
+        f"🏦 Биржа: {context.settings.exchange}\n"
+        f"⚠️ Последняя ошибка: {last_error}"
     )
 
 
@@ -62,15 +62,15 @@ def format_watchlist_text(context: ApplicationContext) -> str:
 
     active_pairs = [pair for pair in context.watchlist_state.pairs if pair.status == PairStatus.ACTIVE]
     if not active_pairs:
-        return "Список пар пуст. Добавьте пару вручную или запустите мониторинг позже."
+        return "📭 Список пар пуст. Добавьте пару вручную или запустите мониторинг позже."
 
     config_map = {config.symbol: config for config in context.watchlist_state.configs}
-    lines = ["Текущий список пар:"]
+    lines = ["📋 Текущий список пар:"]
     for pair in active_pairs:
         config = config_map.get(pair.symbol)
         timeframe = config.timeframe if config else context.settings.default_timeframe
         lines.append(
-            f"- {pair.symbol} | timeframe={timeframe} | source={pair.source_origin.value} | status={pair.status.value}"
+            f"• {pair.symbol} | ⏱ {timeframe} | 🔖 {pair.source_origin.value} | 📍 {pair.status.value}"
         )
     return "\n".join(lines)
 
@@ -79,13 +79,13 @@ def format_settings_text(context: ApplicationContext) -> str:
     """Build a compact settings summary for Telegram output."""
 
     return (
-        "Текущие настройки:\n"
-        f"- Таймфрейм по умолчанию: {context.settings.default_timeframe}\n"
-        f"- Интервал сканирования: {context.settings.scan_interval_seconds} сек.\n"
-        f"- Глубина истории: {context.settings.default_history_depth}\n"
-        f"- Максимум авто-пар: {context.settings.max_auto_pairs}\n"
-        f"- Режим поиска: {context.settings.search_mode}\n"
-        f"- Чувствительность экстремумов: {context.settings.extremum_sensitivity}\n"
-        f"- Уведомления: {context.settings.notifications_enabled}\n"
-        f"- Биржа: {context.settings.exchange}"
+        "⚙️ Текущие настройки:\n"
+        f"⏱ Таймфрейм по умолчанию: {context.settings.default_timeframe}\n"
+        f"🔁 Интервал сканирования: {context.settings.scan_interval_seconds} сек.\n"
+        f"🕯 Глубина истории: {context.settings.default_history_depth}\n"
+        f"📌 Максимум авто-пар: {context.settings.max_auto_pairs}\n"
+        f"🎯 Режим поиска: {context.settings.search_mode}\n"
+        f"📐 Чувствительность экстремумов: {context.settings.extremum_sensitivity}\n"
+        f"🔔 Уведомления: {context.settings.notifications_enabled}\n"
+        f"🏦 Биржа: {context.settings.exchange}"
     )

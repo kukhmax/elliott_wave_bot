@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from elliott_bot.domain.models import MonitoringStatus, PairSourceOrigin, RuntimeState, WatchlistState
+from elliott_bot.integrations.binance_provider import BinanceMarketDataProvider
+from elliott_bot.integrations.coinmarketcap_provider import CoinMarketCapProvider
 from elliott_bot.interfaces.telegram.keyboards import build_main_menu_keyboard, build_timeframe_keyboard
 from elliott_bot.interfaces.telegram.presenters import (
     format_status_text,
@@ -15,9 +17,12 @@ from elliott_bot.interfaces.telegram.presenters import (
 )
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
 from elliott_bot.services.application_context import ApplicationContext
+from elliott_bot.services.market_data_service import MarketDataService
+from elliott_bot.services.market_universe_service import MarketUniverseService
 from elliott_bot.services.runtime_state_service import RuntimeStateService
 from elliott_bot.services.settings_service import SettingsService
 from elliott_bot.services.signal_history_service import SignalHistoryService
+from elliott_bot.services.symbol_mapping_service import SymbolMappingService
 from elliott_bot.services.watchlist_service import WatchlistService
 from elliott_bot.shared.config import AppSettings
 from elliott_bot.storage.file_storage import FileStorage
@@ -37,6 +42,11 @@ def build_context(tmp_path: Path) -> ApplicationContext:
         MAX_AUTO_PAIRS=20,
         SEARCH_MODE="standard",
         EXTREMUM_SENSITIVITY="standard",
+        CMC_API_KEY="test-key",
+        DEFAULT_QUOTE_ASSET="USDT",
+        REQUEST_TIMEOUT_SECONDS=10,
+        RETRY_COUNT=2,
+        RATE_LIMIT_DELAY_MS=250,
         NOTIFICATIONS_ENABLED=True,
         MANUAL_CHECK_EXPLAIN_REJECTIONS=True,
         STORAGE_PATH=str(tmp_path),
@@ -47,6 +57,13 @@ def build_context(tmp_path: Path) -> ApplicationContext:
     watchlist_service = WatchlistService(storage)
     signal_history_service = SignalHistoryService(storage)
     settings_service = SettingsService(storage)
+    symbol_mapping_service = SymbolMappingService(settings, storage)
+    market_universe_service = MarketUniverseService(
+        CoinMarketCapProvider(settings),
+        symbol_mapping_service,
+        storage,
+    )
+    market_data_service = MarketDataService(BinanceMarketDataProvider(settings), storage)
     coordinator = MonitoringCoordinator(runtime_state_service, storage)
 
     return ApplicationContext(
@@ -59,6 +76,9 @@ def build_context(tmp_path: Path) -> ApplicationContext:
         watchlist_service=watchlist_service,
         signal_history_service=signal_history_service,
         monitoring_coordinator=coordinator,
+        symbol_mapping_service=symbol_mapping_service,
+        market_universe_service=market_universe_service,
+        market_data_service=market_data_service,
     )
 
 
@@ -97,7 +117,7 @@ def test_presenters_and_normalizers_work_for_basic_inputs(tmp_path: Path) -> Non
     assert is_supported_timeframe("15m") is True
     assert is_supported_timeframe("30m") is False
     assert "BTCUSDT" in format_watchlist_text(context)
-    assert "Дефолтный таймфрейм: 5m" in format_status_text(context)
+    assert "⏱ Дефолтный таймфрейм: 5m" in format_status_text(context)
 
 
 def test_application_context_can_switch_monitoring_state(tmp_path: Path) -> None:

@@ -499,3 +499,31 @@
 
 - В проекте появился реальный Telegram-слой управления поверх существующего состояния и bootstrap.
 - Следующий кодовый шаг логично посвятить реализации рыночного data layer: провайдеры, маппинг тикеров, нормализация свечей и заготовка загрузки данных.
+
+## 19. Реализация. Шаг 4
+
+### Статус
+
+- Четвертый шаг реализации выполнен.
+
+### Что реализовано
+
+- Во все текущие пользовательские сообщения Telegram-слоя добавлены эмоджи для более понятной и визуально различимой навигации.
+- Расширены конфигурация и доменные модели для market data layer в [config.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/shared/config.py) и [models.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/domain/models.py).
+- Добавлены интеграции [coinmarketcap_provider.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/integrations/coinmarketcap_provider.py) и [binance_provider.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/integrations/binance_provider.py).
+- Реализованы сервисы [symbol_mapping_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/symbol_mapping_service.py), [market_universe_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/market_universe_service.py) и [market_data_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/market_data_service.py).
+- Обновлены [app.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/app.py) и [application_context.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/application_context.py): market data layer теперь создается при bootstrap и готов для следующего шага интеграции в бизнес-логику.
+- Добавлены тесты [test_market_data_layer.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_market_data_layer.py) и обновлены [test_telegram_ui.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_telegram_ui.py).
+
+### Ключевые решения шага
+
+- В качестве первой реализации провайдера universe используется CoinMarketCap, а для свечей — Binance Spot.
+- Маппинг активов в торговые пары строится через дефолтную котируемую валюту `USDT`.
+- Нормализация свечей выполняется в единый формат `OHLCVBar` и `MarketSeries`.
+- Telegram-сообщения стали визуально более распознаваемыми за счет эмоджи, без изменения логики Reply Keyboard.
+- `.gitignore` уточнен так, чтобы игнорировалось только корневое хранилище `storage/`, а не Python-пакет `src/elliott_bot/storage`.
+
+### Результат шага
+
+- В проекте появился базовый market data layer с реальными интеграционными точками и нормализованным контрактом данных.
+- Следующий кодовый шаг логично посвятить реализации автоподбора рынка, загрузки данных в пользовательские сценарии и подготовке аналитического конвейера поиска экстремумов.
