@@ -9,6 +9,16 @@ from elliott_bot.services.notification_message_service import NotificationMessag
 
 
 SUPPORTED_TIMEFRAMES = {"1m", "5m", "15m", "1h", "1d"}
+SETTINGS_FIELD_LABELS = {
+    "default_timeframe": "⏱ Таймфрейм",
+    "scan_interval_seconds": "🔁 Интервал",
+    "default_history_depth": "🕯 История",
+    "max_auto_pairs": "📌 Авто-пары",
+    "search_mode": "🎯 Режим поиска",
+    "extremum_sensitivity": "📐 Экстремумы",
+    "notifications_enabled": "🔔 Уведомления",
+    "manual_check_explain_rejections": "🧾 Пояснять отказы",
+}
 
 
 def normalize_symbol(raw_value: str) -> str:
@@ -21,7 +31,7 @@ def normalize_timeframe(raw_value: str, default_timeframe: str) -> str:
     """Normalize timeframe input while supporting the default-timeframe shortcut."""
 
     value = raw_value.strip()
-    if value == "Использовать 5m":
+    if value.startswith("Использовать "):
         return default_timeframe
     return value
 
@@ -97,3 +107,30 @@ def format_manual_check_result(result: ManualCheckResult) -> str:
     """Build a human-readable Telegram response for a manual check result."""
 
     return NotificationMessageService().build_manual_check_caption(result)
+
+
+def format_settings_menu_text(context: ApplicationContext) -> str:
+    """Build the settings editing menu text."""
+
+    return (
+        f"{format_settings_text(context)}\n"
+        "🛠 Выберите параметр, который хотите изменить."
+    )
+
+
+def format_setting_update_prompt(field_name: str, current_value: object) -> str:
+    """Build a prompt for entering a new value for a selected setting."""
+
+    label = SETTINGS_FIELD_LABELS.get(field_name, field_name)
+    return (
+        f"{label}\n"
+        f"📍 Текущее значение: {current_value}\n"
+        "✍️ Выберите новое значение или введите его вручную."
+    )
+
+
+def format_setting_updated_text(field_name: str, new_value: object) -> str:
+    """Build a success message for an updated setting."""
+
+    label = SETTINGS_FIELD_LABELS.get(field_name, field_name)
+    return f"✅ {label} обновлен: {new_value}"

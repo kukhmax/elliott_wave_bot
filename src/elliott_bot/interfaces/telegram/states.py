@@ -28,3 +28,10 @@ class ManualCheckStates(StatesGroup):
 
     waiting_for_symbol = State()
     waiting_for_timeframe = State()
+
+
+class SettingsStates(StatesGroup):
+    """Conversation states used while editing bot settings."""
+
+    waiting_for_setting = State()
+    waiting_for_value = State()

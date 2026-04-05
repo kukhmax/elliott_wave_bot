@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from elliott_bot.domain.models import MonitoringStatus, PairSourceOrigin, RuntimeState, WatchlistState
 from elliott_bot.integrations.binance_provider import BinanceMarketDataProvider
 from elliott_bot.integrations.coinmarketcap_provider import CoinMarketCapProvider
-from elliott_bot.interfaces.telegram.keyboards import build_main_menu_keyboard, build_timeframe_keyboard
+from elliott_bot.interfaces.telegram.keyboards import (
+    build_main_menu_keyboard,
+    build_settings_keyboard,
+    build_timeframe_keyboard,
+)
 from elliott_bot.interfaces.telegram.presenters import (
     format_status_text,
     format_watchlist_text,
@@ -123,9 +128,18 @@ def test_main_menu_keyboard_switches_between_start_and_stop() -> None:
 def test_timeframe_keyboard_contains_default_shortcut() -> None:
     """Timeframe keyboard should expose the default-timeframe shortcut."""
 
-    keyboard = build_timeframe_keyboard()
+    keyboard = build_timeframe_keyboard(default_timeframe="15m")
     assert keyboard.keyboard[0][0].text == "1m"
-    assert keyboard.keyboard[2][0].text == "Использовать 5m"
+    assert keyboard.keyboard[2][0].text == "Использовать 15m"
+
+
+def test_settings_keyboard_contains_editable_options() -> None:
+    """Settings keyboard should expose editable parameters."""
+
+    keyboard = build_settings_keyboard()
+
+    assert keyboard.keyboard[0][0].text == "Таймфрейм"
+    assert keyboard.keyboard[3][1].text == "Пояснять отказы"
 
 
 def test_presenters_and_normalizers_work_for_basic_inputs(tmp_path: Path) -> None:
@@ -159,3 +173,26 @@ def test_application_context_can_switch_monitoring_state(tmp_path: Path) -> None
 
     context.stop_monitoring()
     assert context.runtime_state.monitoring_status == MonitoringStatus.STOPPED
+
+
+def test_application_context_can_update_setting_and_fill_auto_watchlist(tmp_path: Path) -> None:
+    """Application context should persist setting changes and auto-fill the watchlist."""
+
+    class FakeMarketDataService:
+        async def load_available_symbols(self):
+            return {"BTCUSDT", "ETHUSDT", "SOLUSDT"}, None
+
+    class FakeMarketUniverseService:
+        async def load_watchlist_candidates(self, available_symbols: set[str], *, target_count: int | None = None):
+            return ["BTCUSDT", "ETHUSDT"], [], None
+
+    context = build_context(tmp_path)
+    context.market_data_service = FakeMarketDataService()
+    context.market_universe_service = FakeMarketUniverseService()
+
+    context.update_setting("max_auto_pairs", 2)
+    sync_result = asyncio.run(context.ensure_auto_watchlist())
+
+    assert context.settings.max_auto_pairs == 2
+    assert sync_result["added_count"] == 2
+    assert context.active_pairs_count == 2

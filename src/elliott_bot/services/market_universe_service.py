@@ -22,14 +22,22 @@ class MarketUniverseService:
         self._symbol_mapping_service = symbol_mapping_service
         self._storage = storage
 
-    async def load_watchlist_candidates(self, available_symbols: set[str]) -> tuple[list[str], list[str], MarketDataError | None]:
+    async def load_watchlist_candidates(
+        self,
+        available_symbols: set[str],
+        *,
+        target_count: int | None = None,
+    ) -> tuple[list[str], list[str], MarketDataError | None]:
         """Load top assets and convert them into exchange-ready trading symbols."""
 
-        assets, error = await self._provider.fetch_top_assets()
+        requested_count = target_count or 20
+        fetch_limit = max(requested_count * 3, requested_count)
+        assets, error = await self._provider.fetch_top_assets(limit=fetch_limit)
         if error is not None:
             return [], [], error
 
         matched_symbols, unmatched_assets = self._symbol_mapping_service.map_assets_to_symbols(assets, available_symbols)
+        matched_symbols = matched_symbols[:requested_count]
         self._storage.append_event(
             ServiceEvent(
                 level="INFO",

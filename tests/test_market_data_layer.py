@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from elliott_bot.integrations.binance_provider import BinanceMarketDataProvider
@@ -111,3 +112,33 @@ def test_market_universe_service_maps_assets_with_available_symbols(tmp_path: Pa
     assert matched == ["BTCUSDT", "TONUSDT"]
     assert unmatched == ["ETH"]
     assert service is not None
+
+
+def test_market_universe_service_overfetches_to_fill_target_count(tmp_path: Path) -> None:
+    """Market-universe service should overfetch assets to compensate for filtering losses."""
+
+    class FakeProvider:
+        def __init__(self) -> None:
+            self.requested_limit: int | None = None
+
+        async def fetch_top_assets(self, limit: int | None = None):
+            self.requested_limit = limit
+            return ["USDT", "USDC", "BTC", "ETH", "SOL", "TON"], None
+
+    settings = build_settings(tmp_path)
+    storage = FileStorage(tmp_path)
+    mapping_service = SymbolMappingService(settings, storage)
+    provider = FakeProvider()
+    service = MarketUniverseService(provider, mapping_service, storage)
+
+    matched, unmatched, error = asyncio.run(
+        service.load_watchlist_candidates(
+            {"BTCUSDT", "ETHUSDT", "SOLUSDT", "TONUSDT"},
+            target_count=4,
+        )
+    )
+
+    assert error is None
+    assert matched == ["BTCUSDT", "ETHUSDT", "SOLUSDT", "TONUSDT"]
+    assert unmatched == []
+    assert provider.requested_limit == 12

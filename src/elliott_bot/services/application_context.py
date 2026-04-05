@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from elliott_bot.domain.models import PairStatus, RuntimeState, SignalRecord, SignalStatus, WatchlistState
+from elliott_bot.domain.models import PairSourceOrigin, PairStatus, RuntimeState, SignalRecord, SignalStatus, WatchlistState
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
 from elliott_bot.services.chart_rendering_service import ChartRenderingService
 from elliott_bot.services.elliott_validation_service import ElliottValidationService
@@ -70,6 +70,11 @@ class ApplicationContext:
 
         self.watchlist_service.save(self.watchlist_state)
 
+    def persist_settings(self) -> None:
+        """Persist the current in-memory settings snapshot."""
+
+        self.settings_service.save(self.settings)
+
     def persist_signal_history(self) -> None:
         """Persist the current in-memory signal history."""
 
@@ -101,3 +106,99 @@ class ApplicationContext:
             suppressed_reason=suppressed_reason,
         )
         self.persist_signal_history()
+
+    def update_setting(self, field_name: str, value: object) -> None:
+        """Validate, apply and persist a settings update."""
+
+        self.settings = self.settings_service.update(self.settings, field_name, value)
+
+    async def ensure_auto_watchlist(self) -> dict[str, object]:
+        """Populate the automatic watchlist from CMC and exchange symbols if needed."""
+
+        target_auto_pairs = self.settings.max_auto_pairs
+        active_auto_symbols = {
+            pair.symbol
+            for pair in self.watchlist_state.pairs
+            if pair.status == PairStatus.ACTIVE and pair.source_origin == PairSourceOrigin.AUTO
+        }
+        if len(active_auto_symbols) >= target_auto_pairs:
+            return {
+                "added_count": 0,
+                "active_auto_pairs": len(active_auto_symbols),
+                "active_total_pairs": self.active_pairs_count,
+                "unmatched_assets": 0,
+                "error_message": None,
+            }
+
+        available_symbols, symbols_error = await self.market_data_service.load_available_symbols()
+        if symbols_error is not None:
+            return {
+                "added_count": 0,
+                "active_auto_pairs": len(active_auto_symbols),
+                "active_total_pairs": self.active_pairs_count,
+                "unmatched_assets": 0,
+                "error_message": symbols_error.message,
+            }
+
+        matched_symbols, unmatched_assets, universe_error = await self.market_universe_service.load_watchlist_candidates(
+            available_symbols,
+            target_count=target_auto_pairs,
+        )
+        if universe_error is not None:
+            return {
+                "added_count": 0,
+                "active_auto_pairs": len(active_auto_symbols),
+                "active_total_pairs": self.active_pairs_count,
+                "unmatched_assets": 0,
+                "error_message": universe_error.message,
+            }
+
+        existing_active_symbols = {
+            pair.symbol
+            for pair in self.watchlist_state.pairs
+            if pair.status == PairStatus.ACTIVE
+        }
+        added_count = 0
+        for symbol in matched_symbols:
+            current_auto_count = len(
+                [
+                    pair
+                    for pair in self.watchlist_state.pairs
+                    if pair.status == PairStatus.ACTIVE and pair.source_origin == PairSourceOrigin.AUTO
+                ]
+            )
+            if current_auto_count >= target_auto_pairs:
+                break
+            if symbol in existing_active_symbols:
+                continue
+
+            quote_asset = self.settings.default_quote_asset
+            base_asset = symbol[: -len(quote_asset)] if symbol.endswith(quote_asset) else symbol
+            self.watchlist_state = self.watchlist_service.ensure_pair(
+                state=self.watchlist_state,
+                settings=self.settings,
+                symbol=symbol,
+                base_asset=base_asset,
+                quote_asset=quote_asset,
+                source_origin=PairSourceOrigin.AUTO,
+            )
+            existing_active_symbols.add(symbol)
+            added_count += 1
+
+        if added_count > 0:
+            self.persist_watchlist()
+
+        active_auto_count = len(
+            [
+                pair
+                for pair in self.watchlist_state.pairs
+                if pair.status == PairStatus.ACTIVE and pair.source_origin == PairSourceOrigin.AUTO
+            ]
+        )
+        return {
+            "added_count": added_count,
+            "active_auto_pairs": active_auto_count,
+            "active_total_pairs": self.active_pairs_count,
+            "unmatched_assets": len(unmatched_assets),
+            "error_message": None,
+        }

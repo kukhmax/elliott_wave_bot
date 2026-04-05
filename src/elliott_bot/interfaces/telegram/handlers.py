@@ -11,11 +11,21 @@ from aiogram.types import FSInputFile, Message
 
 from elliott_bot.domain.models import MonitoringStatus, PairSourceOrigin, PairStatus, SignalStatus
 from elliott_bot.interfaces.telegram.keyboards import (
+    build_auto_pairs_keyboard,
+    build_boolean_keyboard,
     build_cancel_keyboard,
+    build_extremum_sensitivity_keyboard,
     build_main_menu_keyboard,
+    build_scan_interval_keyboard,
+    build_search_mode_keyboard,
+    build_settings_keyboard,
     build_timeframe_keyboard,
+    build_history_depth_keyboard,
 )
 from elliott_bot.interfaces.telegram.presenters import (
+    format_setting_update_prompt,
+    format_setting_updated_text,
+    format_settings_menu_text,
     format_settings_text,
     format_status_text,
     format_watchlist_text,
@@ -29,6 +39,7 @@ from elliott_bot.interfaces.telegram.states import (
     ChangeTimeframeStates,
     DeletePairStates,
     ManualCheckStates,
+    SettingsStates,
 )
 from elliott_bot.services.application_context import ApplicationContext
 from elliott_bot.shared.logging import get_logger
@@ -57,6 +68,14 @@ async def handle_start_command(message: Message, app_context: ApplicationContext
     )
 
 
+@router.message(F.text == "Назад")
+async def handle_back_to_menu(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
+    """Return from nested menus back to the main menu."""
+
+    await state.clear()
+    await message.answer("↩️ Возврат в главное меню.", reply_markup=_main_menu(app_context))
+
+
 @router.message(Command("cancel"))
 @router.message(F.text == "Отмена")
 async def handle_cancel(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
@@ -77,11 +96,28 @@ async def handle_status(message: Message, app_context: ApplicationContext) -> No
 async def handle_monitoring_start(message: Message, app_context: ApplicationContext) -> None:
     """Move monitoring into the running state and report the result."""
 
+    await message.answer("🌐 Загружаю пары с рынка и подготавливаю watchlist...", reply_markup=_main_menu(app_context))
+    sync_result = await app_context.ensure_auto_watchlist()
+    if sync_result["error_message"] is not None:
+        await message.answer(
+            f"⚠️ Не удалось загрузить авто-пары: {sync_result['error_message']}",
+            reply_markup=_main_menu(app_context),
+        )
+        return
+    if sync_result["active_total_pairs"] == 0:
+        await message.answer(
+            "⚠️ Не удалось сформировать список пар для мониторинга. Проверьте ключ CMC и доступность рынка.",
+            reply_markup=_main_menu(app_context),
+        )
+        return
+
     app_context.start_monitoring()
     LOGGER.info("Monitoring started from Telegram command.")
     await message.answer(
         "🚀 Мониторинг запущен.\n"
+        f"➕ Авто-пар добавлено: {sync_result['added_count']}\n"
         f"📌 Отслеживаемых пар: {app_context.active_pairs_count}\n"
+        f"🤖 Авто-пар активно: {sync_result['active_auto_pairs']}\n"
         f"⏱ Дефолтный таймфрейм: {app_context.settings.default_timeframe}\n"
         f"🔁 Интервал сканирования: {app_context.settings.scan_interval_seconds} сек.",
         reply_markup=_main_menu(app_context),
@@ -109,10 +145,57 @@ async def handle_watchlist(message: Message, app_context: ApplicationContext) ->
 
 
 @router.message(F.text == "Настройки")
-async def handle_settings(message: Message, app_context: ApplicationContext) -> None:
-    """Show the current application settings."""
+async def handle_settings(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
+    """Show the current application settings and enter editing mode."""
 
-    await message.answer(format_settings_text(app_context), reply_markup=_main_menu(app_context))
+    await state.set_state(SettingsStates.waiting_for_setting)
+    await message.answer(format_settings_menu_text(app_context), reply_markup=build_settings_keyboard())
+
+
+@router.message(SettingsStates.waiting_for_setting)
+async def handle_settings_selection(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
+    """Select which setting should be updated."""
+
+    field_name = _resolve_settings_field(message.text or "")
+    if field_name is None:
+        await message.answer("⚠️ Выберите параметр из меню настроек.", reply_markup=build_settings_keyboard())
+        return
+
+    await state.update_data(setting_field=field_name)
+    await state.set_state(SettingsStates.waiting_for_value)
+    await message.answer(
+        format_setting_update_prompt(field_name, getattr(app_context.settings, field_name)),
+        reply_markup=_settings_value_keyboard(app_context, field_name),
+    )
+
+
+@router.message(SettingsStates.waiting_for_value)
+async def handle_settings_value(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
+    """Validate and persist a new settings value."""
+
+    if (message.text or "") == "Назад":
+        await state.set_state(SettingsStates.waiting_for_setting)
+        await message.answer(format_settings_menu_text(app_context), reply_markup=build_settings_keyboard())
+        return
+
+    state_data = await state.get_data()
+    field_name = state_data["setting_field"]
+    try:
+        value = _parse_settings_value(field_name, message.text or "")
+        app_context.update_setting(field_name, value)
+    except ValueError as error:
+        await message.answer(
+            f"⚠️ {error}",
+            reply_markup=_settings_value_keyboard(app_context, field_name),
+        )
+        return
+
+    await state.set_state(SettingsStates.waiting_for_setting)
+    await message.answer(
+        f"{format_setting_updated_text(field_name, getattr(app_context.settings, field_name))}\n\n"
+        f"{format_settings_menu_text(app_context)}",
+        reply_markup=build_settings_keyboard(),
+    )
 
 
 @router.message(F.text == "Проверить пару")
@@ -139,7 +222,7 @@ async def handle_manual_check_symbol(message: Message, app_context: ApplicationC
     await state.set_state(ManualCheckStates.waiting_for_timeframe)
     await message.answer(
         f"✅ Пара {symbol} распознана. Выберите таймфрейм для проверки или используйте {app_context.settings.default_timeframe}.",
-        reply_markup=build_timeframe_keyboard(),
+        reply_markup=build_timeframe_keyboard(default_timeframe=app_context.settings.default_timeframe),
     )
 
 
@@ -149,7 +232,10 @@ async def handle_manual_check_timeframe(message: Message, app_context: Applicati
 
     timeframe = normalize_timeframe(message.text or "", app_context.settings.default_timeframe)
     if not is_supported_timeframe(timeframe):
-        await message.answer("⚠️ Таймфрейм не поддерживается. Выберите один из предложенных.", reply_markup=build_timeframe_keyboard())
+        await message.answer(
+            "⚠️ Таймфрейм не поддерживается. Выберите один из предложенных.",
+            reply_markup=build_timeframe_keyboard(default_timeframe=app_context.settings.default_timeframe),
+        )
         return
 
     state_data = await state.get_data()
@@ -213,7 +299,7 @@ async def handle_add_pair_symbol(message: Message, app_context: ApplicationConte
     await state.set_state(AddPairStates.waiting_for_timeframe)
     await message.answer(
         f"✅ Пара {symbol} распознана. Теперь выберите таймфрейм или используйте {app_context.settings.default_timeframe}.",
-        reply_markup=build_timeframe_keyboard(),
+        reply_markup=build_timeframe_keyboard(default_timeframe=app_context.settings.default_timeframe),
     )
 
 
@@ -223,7 +309,10 @@ async def handle_add_pair_timeframe(message: Message, app_context: ApplicationCo
 
     timeframe = normalize_timeframe(message.text or "", app_context.settings.default_timeframe)
     if not is_supported_timeframe(timeframe):
-        await message.answer("⚠️ Таймфрейм не поддерживается. Выберите один из предложенных.", reply_markup=build_timeframe_keyboard())
+        await message.answer(
+            "⚠️ Таймфрейм не поддерживается. Выберите один из предложенных.",
+            reply_markup=build_timeframe_keyboard(default_timeframe=app_context.settings.default_timeframe),
+        )
         return
 
     state_data = await state.get_data()
@@ -270,7 +359,10 @@ async def handle_change_timeframe_symbol(message: Message, app_context: Applicat
 
     await state.update_data(symbol=symbol)
     await state.set_state(ChangeTimeframeStates.waiting_for_timeframe)
-    await message.answer("⏱ Выберите новый таймфрейм.", reply_markup=build_timeframe_keyboard())
+    await message.answer(
+        "⏱ Выберите новый таймфрейм.",
+        reply_markup=build_timeframe_keyboard(default_timeframe=app_context.settings.default_timeframe),
+    )
 
 
 @router.message(ChangeTimeframeStates.waiting_for_timeframe)
@@ -279,7 +371,10 @@ async def handle_change_timeframe_value(message: Message, app_context: Applicati
 
     timeframe = normalize_timeframe(message.text or "", app_context.settings.default_timeframe)
     if not is_supported_timeframe(timeframe):
-        await message.answer("⚠️ Таймфрейм не поддерживается. Выберите один из предложенных.", reply_markup=build_timeframe_keyboard())
+        await message.answer(
+            "⚠️ Таймфрейм не поддерживается. Выберите один из предложенных.",
+            reply_markup=build_timeframe_keyboard(default_timeframe=app_context.settings.default_timeframe),
+        )
         return
 
     state_data = await state.get_data()
@@ -341,6 +436,92 @@ async def handle_unknown_action(message: Message, app_context: ApplicationContex
         "❓ Команда не распознана. Используйте кнопки меню или /start для возврата в главное меню.",
         reply_markup=_main_menu(app_context),
     )
+
+
+def _resolve_settings_field(raw_value: str) -> str | None:
+    """Map a settings menu label to the corresponding settings field."""
+
+    return {
+        "Таймфрейм": "default_timeframe",
+        "Интервал": "scan_interval_seconds",
+        "История": "default_history_depth",
+        "Авто-пары": "max_auto_pairs",
+        "Поиск": "search_mode",
+        "Экстремумы": "extremum_sensitivity",
+        "Уведомления": "notifications_enabled",
+        "Пояснять отказы": "manual_check_explain_rejections",
+    }.get(raw_value.strip())
+
+
+def _settings_value_keyboard(app_context: ApplicationContext, field_name: str):
+    """Return a suitable keyboard for the selected settings field."""
+
+    if field_name == "default_timeframe":
+        return build_timeframe_keyboard(default_timeframe=app_context.settings.default_timeframe)
+    if field_name == "scan_interval_seconds":
+        return build_scan_interval_keyboard()
+    if field_name == "default_history_depth":
+        return build_history_depth_keyboard()
+    if field_name == "max_auto_pairs":
+        return build_auto_pairs_keyboard()
+    if field_name == "search_mode":
+        return build_search_mode_keyboard()
+    if field_name == "extremum_sensitivity":
+        return build_extremum_sensitivity_keyboard()
+    if field_name in {"notifications_enabled", "manual_check_explain_rejections"}:
+        return build_boolean_keyboard()
+    return build_cancel_keyboard()
+
+
+def _parse_settings_value(field_name: str, raw_value: str) -> object:
+    """Parse a Telegram-entered value for a selected settings field."""
+
+    value = raw_value.strip()
+    if field_name == "default_timeframe" and value.startswith("Использовать "):
+        value = value.replace("Использовать ", "", 1)
+    if field_name == "default_timeframe":
+        if not is_supported_timeframe(value):
+            raise ValueError("Таймфрейм не поддерживается. Выберите один из предложенных.")
+        return value
+    if field_name == "scan_interval_seconds":
+        parsed = _parse_positive_int(value, "Интервал должен быть целым числом в секундах.")
+        if parsed < 30:
+            raise ValueError("Интервал должен быть не меньше 30 секунд.")
+        return parsed
+    if field_name == "default_history_depth":
+        parsed = _parse_positive_int(value, "Глубина истории должна быть целым числом.")
+        if parsed < 50:
+            raise ValueError("Глубина истории должна быть не меньше 50 свечей.")
+        return parsed
+    if field_name == "max_auto_pairs":
+        parsed = _parse_positive_int(value, "Количество авто-пар должно быть целым числом.")
+        if parsed < 1 or parsed > 100:
+            raise ValueError("Количество авто-пар должно быть от 1 до 100.")
+        return parsed
+    if field_name == "search_mode":
+        if value not in {"standard", "aggressive"}:
+            raise ValueError("Режим поиска должен быть standard или aggressive.")
+        return value
+    if field_name == "extremum_sensitivity":
+        if value not in {"strict", "standard", "aggressive"}:
+            raise ValueError("Чувствительность должна быть strict, standard или aggressive.")
+        return value
+    if field_name in {"notifications_enabled", "manual_check_explain_rejections"}:
+        if value == "Включить":
+            return True
+        if value == "Выключить":
+            return False
+        raise ValueError("Выберите Включить или Выключить.")
+    raise ValueError("Параметр не поддерживается.")
+
+
+def _parse_positive_int(raw_value: str, error_message: str) -> int:
+    """Parse an integer value and return a user-friendly error when it is invalid."""
+
+    try:
+        return int(raw_value)
+    except ValueError as error:
+        raise ValueError(error_message) from error
 
 
 def _build_manual_signal_signature(app_context: ApplicationContext, result) -> str:
