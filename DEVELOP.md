@@ -414,3 +414,35 @@
 ### Результат шага
 
 - Базовый цикл проектной спецификации завершен и может использоваться как полноценная основа для перехода к реализации кода.
+
+## 16. Реализация. Шаг 1
+
+### Статус
+
+- Первый шаг реализации выполнен.
+
+### Что реализовано
+
+- Создан базовый Python-каркас проекта с пакетной структурой под дальнейшую реализацию модулей.
+- Добавлены стартовые инфраструктурные файлы: [pyproject.toml](file:///c:/Users/m-win/Projects/elliott_bot/pyproject.toml), [Dockerfile](file:///c:/Users/m-win/Projects/elliott_bot/Dockerfile), [.dockerignore](file:///c:/Users/m-win/Projects/elliott_bot/.dockerignore), [.env.example](file:///c:/Users/m-win/Projects/elliott_bot/.env.example).
+- Добавлена точка входа приложения [app.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/app.py) и запуск пакета через [__main__.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/__main__.py).
+- Реализованы базовые конфигурация и логирование в [config.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/shared/config.py) и [logging.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/shared/logging.py).
+- Реализовано файловое хранилище и сохранение runtime-состояния в [file_storage.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/storage/file_storage.py), [runtime_state_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/runtime_state_service.py), [models.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/domain/models.py).
+- Добавлены начальные оркестрация мониторинга и Telegram runtime-заготовка в [monitoring_coordinator.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/orchestration/monitoring_coordinator.py) и [bot_runtime.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/bot_runtime.py).
+
+### Принятые допущения для первого кодового шага
+
+- Поскольку в репозитории не было кода, первый шаг реализации начат с создания базового каркаса проекта, конфигурации, логирования, Docker-запуска и минимального постоянного состояния.
+- Полный polling Telegram и бизнес-логика анализа волн пока не включены в runtime и будут добавляться следующими шагами.
+- Дефолтный таймфрейм старта уже зафиксирован в конфигурации как `5m`.
+
+### Особенности реализации
+
+- Во всех новых модулях добавлены докстринги.
+- Логируются ключевые действия bootstrap, загрузки состояния, сохранения состояния и создания Telegram runtime.
+- Хранилище подготовлено под файловый режим и внешний Docker volume.
+
+### Результат шага
+
+- Проект теперь можно запускать как Python-пакет и использовать как основу для реализации следующих модулей.
+- Следующий кодовый шаг логично посвятить доменным моделям приложения и базовой реализации Settings/Watchlist/Persistence слоя поверх созданного каркаса.
