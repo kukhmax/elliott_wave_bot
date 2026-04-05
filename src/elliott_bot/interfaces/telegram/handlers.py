@@ -46,6 +46,17 @@ from elliott_bot.shared.logging import get_logger
 
 router = Router(name="telegram_management")
 LOGGER = get_logger("elliott_bot.telegram.handlers")
+BACK_TEXTS = {"Назад", "↩️ Назад"}
+CANCEL_TEXTS = {"Отмена", "❌ Отмена"}
+START_TEXTS = {"Старт", "🚀 Старт"}
+STOP_TEXTS = {"Стоп", "⏹ Стоп"}
+STATUS_TEXTS = {"Статус", "📊 Статус"}
+WATCHLIST_TEXTS = {"Список пар", "📋 Список пар"}
+SETTINGS_TEXTS = {"Настройки", "⚙️ Настройки"}
+MANUAL_CHECK_TEXTS = {"Проверить пару", "🔎 Проверить пару"}
+ADD_PAIR_TEXTS = {"Добавить пару", "➕ Добавить пару"}
+CHANGE_TIMEFRAME_TEXTS = {"Изменить таймфрейм", "⏱ Изменить таймфрейм"}
+DELETE_PAIR_TEXTS = {"Удалить пару", "🗑 Удалить пару"}
 
 
 def _main_menu(context: ApplicationContext):
@@ -61,6 +72,7 @@ def _main_menu(context: ApplicationContext):
 async def handle_start_command(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
     """Show the main welcome screen and reset any pending scenario."""
 
+    _remember_chat(message, app_context)
     await state.clear()
     await message.answer(
         format_welcome_text(app_context),
@@ -68,35 +80,57 @@ async def handle_start_command(message: Message, app_context: ApplicationContext
     )
 
 
-@router.message(F.text == "Назад")
+@router.message(F.text.in_(BACK_TEXTS))
 async def handle_back_to_menu(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
     """Return from nested menus back to the main menu."""
 
+    _remember_chat(message, app_context)
     await state.clear()
-    await message.answer("↩️ Возврат в главное меню.", reply_markup=_main_menu(app_context))
+    await _send_ephemeral_reply(
+        message,
+        app_context,
+        "↩️ Возврат в главное меню.",
+        reply_markup=_main_menu(app_context),
+        ttl_seconds=8,
+    )
 
 
 @router.message(Command("cancel"))
-@router.message(F.text == "Отмена")
+@router.message(F.text.in_(CANCEL_TEXTS))
 async def handle_cancel(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
     """Cancel the active multi-step scenario and return to the main menu."""
 
+    _remember_chat(message, app_context)
     await state.clear()
-    await message.answer("↩️ Текущий сценарий отменен.", reply_markup=_main_menu(app_context))
+    await _send_ephemeral_reply(
+        message,
+        app_context,
+        "↩️ Текущий сценарий отменен.",
+        reply_markup=_main_menu(app_context),
+        ttl_seconds=8,
+    )
 
 
-@router.message(F.text == "Статус")
+@router.message(F.text.in_(STATUS_TEXTS))
 async def handle_status(message: Message, app_context: ApplicationContext) -> None:
     """Show the current monitoring and configuration status."""
 
+    _remember_chat(message, app_context)
     await message.answer(format_status_text(app_context), reply_markup=_main_menu(app_context))
 
 
-@router.message(F.text == "Старт")
+@router.message(F.text.in_(START_TEXTS))
 async def handle_monitoring_start(message: Message, app_context: ApplicationContext) -> None:
     """Move monitoring into the running state and report the result."""
 
-    await message.answer("🌐 Загружаю пары с рынка и подготавливаю watchlist...", reply_markup=_main_menu(app_context))
+    _remember_chat(message, app_context)
+    await _send_ephemeral_reply(
+        message,
+        app_context,
+        "🌐 Загружаю пары с рынка и подготавливаю watchlist...",
+        reply_markup=_main_menu(app_context),
+        ttl_seconds=12,
+    )
     sync_result = await app_context.ensure_auto_watchlist()
     if sync_result["error_message"] is not None:
         await message.answer(
@@ -124,10 +158,11 @@ async def handle_monitoring_start(message: Message, app_context: ApplicationCont
     )
 
 
-@router.message(F.text == "Стоп")
+@router.message(F.text.in_(STOP_TEXTS))
 async def handle_monitoring_stop(message: Message, app_context: ApplicationContext) -> None:
     """Move monitoring into the stopped state and report the result."""
 
+    _remember_chat(message, app_context)
     app_context.stop_monitoring()
     LOGGER.info("Monitoring stopped from Telegram command.")
     await message.answer(
@@ -137,17 +172,19 @@ async def handle_monitoring_stop(message: Message, app_context: ApplicationConte
     )
 
 
-@router.message(F.text == "Список пар")
+@router.message(F.text.in_(WATCHLIST_TEXTS))
 async def handle_watchlist(message: Message, app_context: ApplicationContext) -> None:
     """Show the current watchlist."""
 
+    _remember_chat(message, app_context)
     await message.answer(format_watchlist_text(app_context), reply_markup=_main_menu(app_context))
 
 
-@router.message(F.text == "Настройки")
+@router.message(F.text.in_(SETTINGS_TEXTS))
 async def handle_settings(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
     """Show the current application settings and enter editing mode."""
 
+    _remember_chat(message, app_context)
     await state.set_state(SettingsStates.waiting_for_setting)
     await message.answer(format_settings_menu_text(app_context), reply_markup=build_settings_keyboard())
 
@@ -163,9 +200,12 @@ async def handle_settings_selection(message: Message, app_context: ApplicationCo
 
     await state.update_data(setting_field=field_name)
     await state.set_state(SettingsStates.waiting_for_value)
-    await message.answer(
+    await _send_ephemeral_reply(
+        message,
+        app_context,
         format_setting_update_prompt(field_name, getattr(app_context.settings, field_name)),
         reply_markup=_settings_value_keyboard(app_context, field_name),
+        ttl_seconds=20,
     )
 
 
@@ -173,7 +213,7 @@ async def handle_settings_selection(message: Message, app_context: ApplicationCo
 async def handle_settings_value(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
     """Validate and persist a new settings value."""
 
-    if (message.text or "") == "Назад":
+    if (message.text or "") in BACK_TEXTS:
         await state.set_state(SettingsStates.waiting_for_setting)
         await message.answer(format_settings_menu_text(app_context), reply_markup=build_settings_keyboard())
         return
@@ -198,10 +238,11 @@ async def handle_settings_value(message: Message, app_context: ApplicationContex
     )
 
 
-@router.message(F.text == "Проверить пару")
+@router.message(F.text.in_(MANUAL_CHECK_TEXTS))
 async def handle_manual_check_entry(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
     """Start the manual check flow for a single trading pair."""
 
+    _remember_chat(message, app_context)
     await state.set_state(ManualCheckStates.waiting_for_symbol)
     await message.answer(
         "🔎 Введите торговую пару для ручной проверки, например BTCUSDT или BTC/USDT.",
@@ -220,9 +261,12 @@ async def handle_manual_check_symbol(message: Message, app_context: ApplicationC
 
     await state.update_data(symbol=symbol)
     await state.set_state(ManualCheckStates.waiting_for_timeframe)
-    await message.answer(
+    await _send_ephemeral_reply(
+        message,
+        app_context,
         f"✅ Пара {symbol} распознана. Выберите таймфрейм для проверки или используйте {app_context.settings.default_timeframe}.",
         reply_markup=build_timeframe_keyboard(default_timeframe=app_context.settings.default_timeframe),
+        ttl_seconds=15,
     )
 
 
@@ -242,7 +286,13 @@ async def handle_manual_check_timeframe(message: Message, app_context: Applicati
     symbol = state_data["symbol"]
     await state.clear()
 
-    await message.answer("⏳ Загружаю данные и запускаю базовый волновой анализ...", reply_markup=_main_menu(app_context))
+    await _send_ephemeral_reply(
+        message,
+        app_context,
+        "⏳ Загружаю данные и запускаю базовый волновой анализ...",
+        reply_markup=_main_menu(app_context),
+        ttl_seconds=15,
+    )
     result = await app_context.manual_check_service.run(symbol=symbol, timeframe=timeframe)
     LOGGER.info("Manual check completed for %s on %s with status %s.", symbol, timeframe, result.status)
     caption = app_context.notification_message_service.build_manual_check_caption(result)
@@ -274,10 +324,11 @@ async def handle_manual_check_timeframe(message: Message, app_context: Applicati
     )
 
 
-@router.message(F.text == "Добавить пару")
+@router.message(F.text.in_(ADD_PAIR_TEXTS))
 async def handle_add_pair_entry(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
     """Start the add-pair scenario."""
 
+    _remember_chat(message, app_context)
     await state.set_state(AddPairStates.waiting_for_symbol)
     await message.answer(
         "➕ Введите торговую пару, например BTCUSDT или BTC/USDT.",
@@ -297,9 +348,12 @@ async def handle_add_pair_symbol(message: Message, app_context: ApplicationConte
 
     await state.update_data(symbol=symbol)
     await state.set_state(AddPairStates.waiting_for_timeframe)
-    await message.answer(
+    await _send_ephemeral_reply(
+        message,
+        app_context,
         f"✅ Пара {symbol} распознана. Теперь выберите таймфрейм или используйте {app_context.settings.default_timeframe}.",
         reply_markup=build_timeframe_keyboard(default_timeframe=app_context.settings.default_timeframe),
+        ttl_seconds=15,
     )
 
 
@@ -336,10 +390,11 @@ async def handle_add_pair_timeframe(message: Message, app_context: ApplicationCo
     )
 
 
-@router.message(F.text == "Изменить таймфрейм")
+@router.message(F.text.in_(CHANGE_TIMEFRAME_TEXTS))
 async def handle_change_timeframe_entry(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
     """Start the change-timeframe scenario."""
 
+    _remember_chat(message, app_context)
     await state.set_state(ChangeTimeframeStates.waiting_for_symbol)
     await message.answer(
         "✏️ Введите символ пары, для которой нужно изменить таймфрейм.",
@@ -393,10 +448,11 @@ async def handle_change_timeframe_value(message: Message, app_context: Applicati
     )
 
 
-@router.message(F.text == "Удалить пару")
+@router.message(F.text.in_(DELETE_PAIR_TEXTS))
 async def handle_delete_pair_entry(message: Message, app_context: ApplicationContext, state: FSMContext) -> None:
     """Start the delete-pair scenario."""
 
+    _remember_chat(message, app_context)
     await state.set_state(DeletePairStates.waiting_for_symbol)
     await message.answer(
         "🗑 Введите символ пары, которую нужно удалить из мониторинга.",
@@ -443,13 +499,21 @@ def _resolve_settings_field(raw_value: str) -> str | None:
 
     return {
         "Таймфрейм": "default_timeframe",
+        "⏱ Таймфрейм": "default_timeframe",
         "Интервал": "scan_interval_seconds",
+        "🔁 Интервал": "scan_interval_seconds",
         "История": "default_history_depth",
+        "🕯 История": "default_history_depth",
         "Авто-пары": "max_auto_pairs",
+        "📌 Авто-пары": "max_auto_pairs",
         "Поиск": "search_mode",
+        "🎯 Поиск": "search_mode",
         "Экстремумы": "extremum_sensitivity",
+        "📐 Экстремумы": "extremum_sensitivity",
         "Уведомления": "notifications_enabled",
+        "🔔 Уведомления": "notifications_enabled",
         "Пояснять отказы": "manual_check_explain_rejections",
+        "🧾 Пояснять отказы": "manual_check_explain_rejections",
     }.get(raw_value.strip())
 
 
@@ -477,8 +541,8 @@ def _parse_settings_value(field_name: str, raw_value: str) -> object:
     """Parse a Telegram-entered value for a selected settings field."""
 
     value = raw_value.strip()
-    if field_name == "default_timeframe" and value.startswith("Использовать "):
-        value = value.replace("Использовать ", "", 1)
+    if field_name == "default_timeframe" and "Использовать " in value:
+        value = value.split("Использовать ", 1)[1]
     if field_name == "default_timeframe":
         if not is_supported_timeframe(value):
             raise ValueError("Таймфрейм не поддерживается. Выберите один из предложенных.")
@@ -507,9 +571,9 @@ def _parse_settings_value(field_name: str, raw_value: str) -> object:
             raise ValueError("Чувствительность должна быть strict, standard или aggressive.")
         return value
     if field_name in {"notifications_enabled", "manual_check_explain_rejections"}:
-        if value == "Включить":
+        if value in {"Включить", "✅ Включить"}:
             return True
-        if value == "Выключить":
+        if value in {"Выключить", "⛔ Выключить"}:
             return False
         raise ValueError("Выберите Включить или Выключить.")
     raise ValueError("Параметр не поддерживается.")
@@ -533,6 +597,31 @@ def _build_manual_signal_signature(app_context: ApplicationContext, result) -> s
             result.validation_result,
         )
     return f"manual:{result.symbol}:{result.timeframe}:{result.status}"
+
+
+def _remember_chat(message: Message, app_context: ApplicationContext) -> None:
+    """Register the current Telegram chat for monitoring summaries and alerts."""
+
+    app_context.register_chat(message.chat.id)
+
+
+async def _send_ephemeral_reply(
+    message: Message,
+    app_context: ApplicationContext,
+    text: str,
+    *,
+    reply_markup: object | None = None,
+    ttl_seconds: int = 10,
+):
+    """Send a short-lived Telegram message for routine feedback."""
+
+    sent_message = await message.answer(text, reply_markup=reply_markup)
+    app_context.schedule_message_cleanup(
+        message.chat.id,
+        sent_message.message_id,
+        ttl_seconds=ttl_seconds,
+    )
+    return sent_message
 
 
 def _cleanup_chart_file(chart_path: Path | None) -> None:

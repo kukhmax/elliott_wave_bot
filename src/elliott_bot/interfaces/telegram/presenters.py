@@ -31,7 +31,7 @@ def normalize_timeframe(raw_value: str, default_timeframe: str) -> str:
     """Normalize timeframe input while supporting the default-timeframe shortcut."""
 
     value = raw_value.strip()
-    if value.startswith("Использовать "):
+    if "Использовать " in value:
         return default_timeframe
     return value
 
@@ -58,10 +58,16 @@ def format_status_text(context: ApplicationContext) -> str:
     """Build a human-readable status summary for the current application state."""
 
     last_error = context.runtime_state.last_error or "нет"
+    current_pair = context.runtime_state.current_pair or "нет"
+    queue_size = context.runtime_state.queue_size
+    cycle_started_at = context.runtime_state.current_cycle_started_at or "нет"
     return (
         "📊 Статус бота:\n"
         f"🛰 Мониторинг: {context.runtime_state.monitoring_status.value}\n"
         f"📌 Отслеживаемых пар: {context.active_pairs_count}\n"
+        f"🔎 Текущая пара: {current_pair}\n"
+        f"🧾 Осталось в очереди: {queue_size}\n"
+        f"🕒 Цикл начат: {cycle_started_at}\n"
         f"⏱ Дефолтный таймфрейм: {context.settings.default_timeframe}\n"
         f"🔁 Интервал сканирования: {context.settings.scan_interval_seconds} сек.\n"
         f"🏦 Биржа: {context.settings.exchange}\n"

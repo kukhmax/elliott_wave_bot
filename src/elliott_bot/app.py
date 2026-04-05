@@ -89,6 +89,7 @@ async def run() -> None:
         runtime_state=state,
         watchlist_state=watchlist_state,
         signal_history=signal_history,
+        storage=storage,
         settings_service=settings_service,
         runtime_state_service=runtime_state_service,
         watchlist_service=watchlist_service,
@@ -108,6 +109,7 @@ async def run() -> None:
 
     telegram_runtime = TelegramBotRuntime(settings.telegram_bot_token)
     bot = telegram_runtime.create_bot()
+    app_context.attach_bot(bot)
 
     logger.info(
         "Bootstrap completed. monitoring_status=%s telegram_configured=%s watchlist_pairs=%s signal_history=%s market_universe_provider=%s market_data_provider=%s",
@@ -165,6 +167,7 @@ async def run() -> None:
         )
         raise
     finally:
+        await app_context.shutdown()
         app_context.runtime_state = app_context.runtime_state_service.mark_stopped(app_context.runtime_state)
         app_context.runtime_state_service.save(app_context.runtime_state)
         storage.append_event(

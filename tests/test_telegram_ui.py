@@ -97,6 +97,7 @@ def build_context(tmp_path: Path) -> ApplicationContext:
         runtime_state=RuntimeState.default(),
         watchlist_state=WatchlistState(),
         signal_history=[],
+        storage=storage,
         settings_service=settings_service,
         runtime_state_service=runtime_state_service,
         watchlist_service=watchlist_service,
@@ -121,8 +122,8 @@ def test_main_menu_keyboard_switches_between_start_and_stop() -> None:
     stopped_keyboard = build_main_menu_keyboard(monitoring_running=False)
     running_keyboard = build_main_menu_keyboard(monitoring_running=True)
 
-    assert stopped_keyboard.keyboard[0][0].text == "Старт"
-    assert running_keyboard.keyboard[0][0].text == "Стоп"
+    assert stopped_keyboard.keyboard[0][0].text == "🚀 Старт"
+    assert running_keyboard.keyboard[0][0].text == "⏹ Стоп"
 
 
 def test_timeframe_keyboard_contains_default_shortcut() -> None:
@@ -130,7 +131,7 @@ def test_timeframe_keyboard_contains_default_shortcut() -> None:
 
     keyboard = build_timeframe_keyboard(default_timeframe="15m")
     assert keyboard.keyboard[0][0].text == "1m"
-    assert keyboard.keyboard[2][0].text == "Использовать 15m"
+    assert keyboard.keyboard[2][0].text == "✅ Использовать 15m"
 
 
 def test_settings_keyboard_contains_editable_options() -> None:
@@ -138,8 +139,8 @@ def test_settings_keyboard_contains_editable_options() -> None:
 
     keyboard = build_settings_keyboard()
 
-    assert keyboard.keyboard[0][0].text == "Таймфрейм"
-    assert keyboard.keyboard[3][1].text == "Пояснять отказы"
+    assert keyboard.keyboard[0][0].text == "⏱ Таймфрейм"
+    assert keyboard.keyboard[3][1].text == "🧾 Пояснять отказы"
 
 
 def test_presenters_and_normalizers_work_for_basic_inputs(tmp_path: Path) -> None:
@@ -156,7 +157,7 @@ def test_presenters_and_normalizers_work_for_basic_inputs(tmp_path: Path) -> Non
     )
 
     assert normalize_symbol("btc/usdt") == "BTCUSDT"
-    assert normalize_timeframe("Использовать 5m", "5m") == "5m"
+    assert normalize_timeframe("✅ Использовать 5m", "5m") == "5m"
     assert is_supported_timeframe("15m") is True
     assert is_supported_timeframe("30m") is False
     assert "BTCUSDT" in format_watchlist_text(context)
