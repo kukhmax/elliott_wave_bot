@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from elliott_bot.domain.models import PairStatus, RuntimeState, SignalRecord, WatchlistState
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
+from elliott_bot.services.elliott_validation_service import ElliottValidationService
 from elliott_bot.services.extremum_detection_service import ExtremumDetectionService
 from elliott_bot.services.manual_check_service import ManualCheckService
 from elliott_bot.services.market_data_service import MarketDataService
@@ -39,6 +40,7 @@ class ApplicationContext:
     series_preparation_service: SeriesPreparationService
     extremum_detection_service: ExtremumDetectionService
     wave_analysis_service: WaveAnalysisService
+    elliott_validation_service: ElliottValidationService
     manual_check_service: ManualCheckService
 
     @property

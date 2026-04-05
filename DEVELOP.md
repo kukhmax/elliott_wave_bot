@@ -555,3 +555,30 @@
 
 - В проекте появился рабочий каркас базового wave-analysis pipeline и ручной аналитической проверки пары.
 - Следующий кодовый шаг логично посвятить полной валидации пропорций и Фибоначчи, чтобы переводить ранние кандидаты в более надежные статусы перед отправкой сигналов.
+
+## 21. Реализация. Шаг 6
+
+### Статус
+
+- Шестой шаг реализации выполнен.
+
+### Что реализовано
+
+- Реализован отдельный слой валидации пропорций и Фибоначчи для ранних волновых кандидатов.
+- Добавлен результат валидации [ElliottValidationResult](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/domain/models.py) в [models.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/domain/models.py).
+- Реализован сервис [elliott_validation_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/elliott_validation_service.py), который оценивает wave2, wave3, wave4, wave5, чередование и геометрию структуры.
+- Обновлен [manual_check_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/manual_check_service.py): ручная проверка теперь не только находит ранний кандидат, но и валидирует его по пропорциям перед выдачей статуса.
+- Обновлены [application_context.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/application_context.py), [app.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/app.py) и [presenters.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/presenters.py): validation pipeline создается при bootstrap, а Telegram-ответ показывает краткую диагностику и сильные совпадения.
+- Добавлены тесты [test_elliott_validation_service.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_elliott_validation_service.py) и обновлены [test_wave_analysis_pipeline.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_wave_analysis_pipeline.py) и [test_telegram_ui.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_telegram_ui.py).
+
+### Ключевые решения шага
+
+- Валидация отделена от раннего поиска и работает поверх уже найденных `WaveCandidate`.
+- Итоговые статусы теперь определяются через scoring и зоны соответствия, а не по одному коэффициенту.
+- Ручная проверка может возвращать `confirmed`, `probable` или `rejected` в зависимости от итоговой validation score.
+- Telegram-вывод показывает не только итог, но и краткую диагностическую сводку по валидации.
+
+### Результат шага
+
+- В проекте появился рабочий слой Fibonacci-validation поверх базового wave-analysis pipeline.
+- Следующий кодовый шаг логично посвятить визуализации результатов, подготовке графика с точками P0-P5 и формированию уведомлений на основе подтвержденных сценариев.

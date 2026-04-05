@@ -96,14 +96,18 @@ def format_manual_check_result(result: ManualCheckResult) -> str:
     """Build a human-readable Telegram response for a manual check result."""
 
     if result.best_candidate is None:
+        reason = result.validation_result.diagnostic_summary if result.validation_result is not None else result.summary
         return (
             f"🔎 Проверка пары: {result.symbol}\n"
             f"⏱ Таймфрейм: {result.timeframe}\n"
             f"📉 Статус: {result.status}\n"
-            f"⚠️ Итог: {result.summary}"
+            f"⚠️ Итог: {result.summary}\n"
+            f"🧾 Диагностика: {reason}"
         )
 
     candidate = result.best_candidate
+    validation_summary = result.validation_result.diagnostic_summary if result.validation_result is not None else "нет"
+    strong_matches = ", ".join(result.validation_result.strong_matches) if result.validation_result is not None else "нет"
     return (
         f"🔎 Проверка пары: {result.symbol}\n"
         f"⏱ Таймфрейм: {result.timeframe}\n"
@@ -111,5 +115,7 @@ def format_manual_check_result(result: ManualCheckResult) -> str:
         f"🧭 Направление: {candidate.direction.value}\n"
         f"🌊 Кандидат: {candidate.candidate_id}\n"
         f"📌 Примечания: {', '.join(candidate.structural_notes)}\n"
+        f"🧮 Валидация: {validation_summary}\n"
+        f"✨ Сильные совпадения: {strong_matches}\n"
         f"✅ Итог: {result.summary}"
     )

@@ -17,6 +17,7 @@ from elliott_bot.interfaces.telegram.presenters import (
 )
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
 from elliott_bot.services.application_context import ApplicationContext
+from elliott_bot.services.elliott_validation_service import ElliottValidationService
 from elliott_bot.services.extremum_detection_service import ExtremumDetectionService
 from elliott_bot.services.manual_check_service import ManualCheckService
 from elliott_bot.services.market_data_service import MarketDataService
@@ -71,12 +72,14 @@ def build_context(tmp_path: Path) -> ApplicationContext:
     series_preparation_service = SeriesPreparationService()
     extremum_detection_service = ExtremumDetectionService()
     wave_analysis_service = WaveAnalysisService()
+    elliott_validation_service = ElliottValidationService()
     manual_check_service = ManualCheckService(
         settings=settings,
         market_data_service=market_data_service,
         series_preparation_service=series_preparation_service,
         extremum_detection_service=extremum_detection_service,
         wave_analysis_service=wave_analysis_service,
+        elliott_validation_service=elliott_validation_service,
     )
     coordinator = MonitoringCoordinator(runtime_state_service, storage)
 
@@ -96,6 +99,7 @@ def build_context(tmp_path: Path) -> ApplicationContext:
         series_preparation_service=series_preparation_service,
         extremum_detection_service=extremum_detection_service,
         wave_analysis_service=wave_analysis_service,
+        elliott_validation_service=elliott_validation_service,
         manual_check_service=manual_check_service,
     )
 

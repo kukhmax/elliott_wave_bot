@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from elliott_bot.domain.models import MarketDataError, WaveAnalysisResult, WaveCandidate
+from elliott_bot.domain.models import ElliottValidationResult, MarketDataError, WaveAnalysisResult, WaveCandidate
+from elliott_bot.services.elliott_validation_service import ElliottValidationService
 from elliott_bot.services.extremum_detection_service import ExtremumDetectionService
 from elliott_bot.services.market_data_service import MarketDataService
 from elliott_bot.services.series_preparation_service import SeriesPreparationService
@@ -23,6 +24,7 @@ class ManualCheckResult:
     summary: str
     best_candidate: WaveCandidate | None = None
     analysis_result: WaveAnalysisResult | None = None
+    validation_result: ElliottValidationResult | None = None
     error: MarketDataError | None = None
 
 
@@ -36,12 +38,14 @@ class ManualCheckService:
         series_preparation_service: SeriesPreparationService,
         extremum_detection_service: ExtremumDetectionService,
         wave_analysis_service: WaveAnalysisService,
+        elliott_validation_service: ElliottValidationService,
     ) -> None:
         self._settings = settings
         self._market_data_service = market_data_service
         self._series_preparation_service = series_preparation_service
         self._extremum_detection_service = extremum_detection_service
         self._wave_analysis_service = wave_analysis_service
+        self._elliott_validation_service = elliott_validation_service
         self._logger = get_logger(self.__class__.__name__)
 
     async def run(self, symbol: str, timeframe: str) -> ManualCheckResult:
@@ -89,13 +93,40 @@ class ManualCheckService:
                 analysis_result=analysis_result,
             )
 
-        best_candidate = analysis_result.candidates[0]
-        self._logger.info("Manual check found a candidate for %s %s.", symbol, timeframe)
+        ranked_results = [
+            (candidate, self._elliott_validation_service.validate(candidate))
+            for candidate in analysis_result.candidates
+        ]
+        ranked_results.sort(
+            key=lambda item: (
+                self._status_rank(item[1].status.value),
+                item[1].confidence_score,
+            ),
+            reverse=True,
+        )
+        best_candidate, validation_result = ranked_results[0]
+        self._logger.info(
+            "Manual check found a validated candidate for %s %s with status %s.",
+            symbol,
+            timeframe,
+            validation_result.status.value,
+        )
         return ManualCheckResult(
             symbol=symbol,
             timeframe=timeframe,
-            status="probable",
-            summary="Найдена ранняя 5-волновая структура после базовой структурной фильтрации.",
+            status=validation_result.status.value,
+            summary="Найдена структура после базовой фильтрации и валидации пропорций.",
             best_candidate=best_candidate,
             analysis_result=analysis_result,
+            validation_result=validation_result,
         )
+
+    @staticmethod
+    def _status_rank(status: str) -> int:
+        """Return a comparable rank for validation statuses."""
+
+        return {
+            "confirmed": 3,
+            "probable": 2,
+            "rejected": 1,
+        }.get(status, 0)

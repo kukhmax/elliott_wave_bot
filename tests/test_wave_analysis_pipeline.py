@@ -6,6 +6,7 @@ import asyncio
 from pathlib import Path
 
 from elliott_bot.domain.models import MarketSeries, OHLCVBar
+from elliott_bot.services.elliott_validation_service import ElliottValidationService
 from elliott_bot.services.extremum_detection_service import ExtremumDetectionService
 from elliott_bot.services.manual_check_service import ManualCheckService
 from elliott_bot.services.series_preparation_service import SeriesPreparationService
@@ -102,10 +103,12 @@ def test_manual_check_service_returns_probable_result(tmp_path: Path) -> None:
         series_preparation_service=SeriesPreparationService(),
         extremum_detection_service=ExtremumDetectionService(),
         wave_analysis_service=WaveAnalysisService(),
+        elliott_validation_service=ElliottValidationService(),
     )
 
     result = asyncio.run(service.run(symbol="BTCUSDT", timeframe="5m"))
 
-    assert result.status == "probable"
+    assert result.status in {"confirmed", "probable"}
     assert result.best_candidate is not None
     assert result.analysis_result is not None
+    assert result.validation_result is not None

@@ -404,6 +404,28 @@ class WaveAnalysisResult:
 
 
 @dataclass(slots=True)
+class ElliottValidationResult:
+    """Represents the result of Fibonacci and proportion validation."""
+
+    candidate_id: str
+    status: SignalStatus
+    confidence_score: float
+    strong_matches: list[str] = field(default_factory=list)
+    acceptable_matches: list[str] = field(default_factory=list)
+    weak_matches: list[str] = field(default_factory=list)
+    downgrade_reasons: list[str] = field(default_factory=list)
+    diagnostic_summary: str = ""
+    ratios: dict[str, float] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the validation result into a JSON-serializable dictionary."""
+
+        payload = asdict(self)
+        payload["status"] = self.status.value
+        return payload
+
+
+@dataclass(slots=True)
 class ServiceEvent:
     """Represents a structured service event for persistent logging."""
 
