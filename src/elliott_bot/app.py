@@ -9,11 +9,13 @@ from elliott_bot.integrations.coinmarketcap_provider import CoinMarketCapProvide
 from elliott_bot.interfaces.telegram.bot_runtime import TelegramBotRuntime
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
 from elliott_bot.services.application_context import ApplicationContext
+from elliott_bot.services.chart_rendering_service import ChartRenderingService
 from elliott_bot.services.elliott_validation_service import ElliottValidationService
 from elliott_bot.services.extremum_detection_service import ExtremumDetectionService
 from elliott_bot.services.manual_check_service import ManualCheckService
 from elliott_bot.services.market_data_service import MarketDataService
 from elliott_bot.services.market_universe_service import MarketUniverseService
+from elliott_bot.services.notification_message_service import NotificationMessageService
 from elliott_bot.services.series_preparation_service import SeriesPreparationService
 from elliott_bot.services.settings_service import SettingsService
 from elliott_bot.services.signal_history_service import SignalHistoryService
@@ -64,6 +66,8 @@ async def run() -> None:
     extremum_detection_service = ExtremumDetectionService()
     wave_analysis_service = WaveAnalysisService()
     elliott_validation_service = ElliottValidationService()
+    chart_rendering_service = ChartRenderingService(settings)
+    notification_message_service = NotificationMessageService()
     manual_check_service = ManualCheckService(
         settings=settings,
         market_data_service=market_data_service,
@@ -97,6 +101,8 @@ async def run() -> None:
         wave_analysis_service=wave_analysis_service,
         elliott_validation_service=elliott_validation_service,
         manual_check_service=manual_check_service,
+        chart_rendering_service=chart_rendering_service,
+        notification_message_service=notification_message_service,
     )
 
     telegram_runtime = TelegramBotRuntime(settings.telegram_bot_token)
@@ -111,7 +117,7 @@ async def run() -> None:
         settings.market_universe_provider,
         settings.market_data_provider,
     )
-    logger.info("Persistent state services, market data layer and validation pipeline are ready.")
+    logger.info("Persistent state services, validation pipeline and visualization layer are ready.")
 
     if not telegram_runtime.configured:
         logger.warning("Telegram bot token is not configured. Exiting after bootstrap.")

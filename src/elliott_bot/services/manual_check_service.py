@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from elliott_bot.domain.models import ElliottValidationResult, MarketDataError, WaveAnalysisResult, WaveCandidate
+from elliott_bot.domain.models import ElliottValidationResult, MarketDataError, MarketSeries, WaveAnalysisResult, WaveCandidate
 from elliott_bot.services.elliott_validation_service import ElliottValidationService
 from elliott_bot.services.extremum_detection_service import ExtremumDetectionService
 from elliott_bot.services.market_data_service import MarketDataService
@@ -25,6 +25,7 @@ class ManualCheckResult:
     best_candidate: WaveCandidate | None = None
     analysis_result: WaveAnalysisResult | None = None
     validation_result: ElliottValidationResult | None = None
+    market_series: MarketSeries | None = None
     error: MarketDataError | None = None
 
 
@@ -63,6 +64,7 @@ class ManualCheckService:
                 timeframe=timeframe,
                 status="rejected",
                 summary=message,
+                market_series=series,
                 error=error,
             )
 
@@ -73,6 +75,7 @@ class ManualCheckService:
                 timeframe=timeframe,
                 status="rejected",
                 summary=preparation_error.message,
+                market_series=series,
                 error=preparation_error,
             )
 
@@ -91,6 +94,7 @@ class ManualCheckService:
                 status="rejected",
                 summary=f"Не найдено валидных структур. Причина: {rejected_reason}.",
                 analysis_result=analysis_result,
+                market_series=prepared_series,
             )
 
         ranked_results = [
@@ -119,6 +123,7 @@ class ManualCheckService:
             best_candidate=best_candidate,
             analysis_result=analysis_result,
             validation_result=validation_result,
+            market_series=prepared_series,
         )
 
     @staticmethod

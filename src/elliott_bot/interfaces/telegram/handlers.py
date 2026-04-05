@@ -5,7 +5,7 @@ from __future__ import annotations
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import FSInputFile, Message
 
 from elliott_bot.domain.models import MonitoringStatus, PairSourceOrigin, PairStatus
 from elliott_bot.interfaces.telegram.keyboards import (
@@ -14,7 +14,6 @@ from elliott_bot.interfaces.telegram.keyboards import (
     build_timeframe_keyboard,
 )
 from elliott_bot.interfaces.telegram.presenters import (
-    format_manual_check_result,
     format_settings_text,
     format_status_text,
     format_watchlist_text,
@@ -158,7 +157,17 @@ async def handle_manual_check_timeframe(message: Message, app_context: Applicati
     await message.answer("⏳ Загружаю данные и запускаю базовый волновой анализ...", reply_markup=_main_menu(app_context))
     result = await app_context.manual_check_service.run(symbol=symbol, timeframe=timeframe)
     LOGGER.info("Manual check completed for %s on %s with status %s.", symbol, timeframe, result.status)
-    await message.answer(format_manual_check_result(result), reply_markup=_main_menu(app_context))
+    caption = app_context.notification_message_service.build_manual_check_caption(result)
+    chart_path = app_context.chart_rendering_service.render_manual_check_chart(result)
+    if chart_path is not None:
+        await message.answer_photo(
+            photo=FSInputFile(chart_path),
+            caption=caption,
+            reply_markup=_main_menu(app_context),
+        )
+        return
+
+    await message.answer(caption, reply_markup=_main_menu(app_context))
 
 
 @router.message(F.text == "Добавить пару")

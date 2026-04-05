@@ -5,6 +5,7 @@ from __future__ import annotations
 from elliott_bot.domain.models import PairStatus
 from elliott_bot.services.application_context import ApplicationContext
 from elliott_bot.services.manual_check_service import ManualCheckResult
+from elliott_bot.services.notification_message_service import NotificationMessageService
 
 
 SUPPORTED_TIMEFRAMES = {"1m", "5m", "15m", "1h", "1d"}
@@ -95,27 +96,4 @@ def format_settings_text(context: ApplicationContext) -> str:
 def format_manual_check_result(result: ManualCheckResult) -> str:
     """Build a human-readable Telegram response for a manual check result."""
 
-    if result.best_candidate is None:
-        reason = result.validation_result.diagnostic_summary if result.validation_result is not None else result.summary
-        return (
-            f"🔎 Проверка пары: {result.symbol}\n"
-            f"⏱ Таймфрейм: {result.timeframe}\n"
-            f"📉 Статус: {result.status}\n"
-            f"⚠️ Итог: {result.summary}\n"
-            f"🧾 Диагностика: {reason}"
-        )
-
-    candidate = result.best_candidate
-    validation_summary = result.validation_result.diagnostic_summary if result.validation_result is not None else "нет"
-    strong_matches = ", ".join(result.validation_result.strong_matches) if result.validation_result is not None else "нет"
-    return (
-        f"🔎 Проверка пары: {result.symbol}\n"
-        f"⏱ Таймфрейм: {result.timeframe}\n"
-        f"📈 Статус: {result.status}\n"
-        f"🧭 Направление: {candidate.direction.value}\n"
-        f"🌊 Кандидат: {candidate.candidate_id}\n"
-        f"📌 Примечания: {', '.join(candidate.structural_notes)}\n"
-        f"🧮 Валидация: {validation_summary}\n"
-        f"✨ Сильные совпадения: {strong_matches}\n"
-        f"✅ Итог: {result.summary}"
-    )
+    return NotificationMessageService().build_manual_check_caption(result)

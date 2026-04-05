@@ -582,3 +582,32 @@
 
 - В проекте появился рабочий слой Fibonacci-validation поверх базового wave-analysis pipeline.
 - Следующий кодовый шаг логично посвятить визуализации результатов, подготовке графика с точками P0-P5 и формированию уведомлений на основе подтвержденных сценариев.
+
+## 22. Реализация. Шаг 7
+
+### Статус
+
+- Седьмой шаг реализации выполнен.
+
+### Что реализовано
+
+- Реализован слой визуализации результатов и PNG-рендеринга графиков для ручной проверки.
+- В [pyproject.toml](file:///c:/Users/m-win/Projects/elliott_bot/pyproject.toml) добавлена зависимость `matplotlib` для построения графиков.
+- Обновлен [manual_check_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/manual_check_service.py): результат ручной проверки теперь сохраняет подготовленную `MarketSeries`, чтобы ее можно было визуализировать.
+- Реализован [chart_rendering_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/chart_rendering_service.py), который строит PNG-график с линией цены, точками `P0-P5`, подписями волн и диагностической сводкой.
+- Реализован [notification_message_service.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/notification_message_service.py) для формирования текста ручной проверки и будущих автоматических уведомлений, включая deterministic signal signature.
+- Обновлены [application_context.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/services/application_context.py), [app.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/app.py) и [handlers.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/handlers.py): сервисы визуализации и уведомлений создаются при bootstrap, а Telegram при ручной проверке отправляет картинку, если рендер удался.
+- Обновлен [presenters.py](file:///c:/Users/m-win/Projects/elliott_bot/src/elliott_bot/interfaces/telegram/presenters.py): формат ручной проверки синхронизирован с notification service.
+- Добавлены тесты [test_visualization_and_notifications.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_visualization_and_notifications.py) и обновлены [test_telegram_ui.py](file:///c:/Users/m-win/Projects/elliott_bot/tests/test_telegram_ui.py).
+
+### Ключевые решения шага
+
+- При успешной ручной проверке Telegram теперь отправляет PNG-график с подписью вместо одного только текста.
+- Если рендер графика не удался или сценарий отклонен, используется безопасный текстовый fallback.
+- Для `rejected` сценариев график не отправляется, чтобы не засорять интерфейс бесполезной визуализацией.
+- Notification service уже умеет строить deterministic signal signature для следующего шага с антидублями.
+
+### Результат шага
+
+- В проекте появился рабочий слой визуализации и подготовки уведомлений для ручной проверки.
+- Следующий кодовый шаг логично посвятить автоматическим уведомлениям, антидублям и сохранению истории отправок на основе уже готового графика и validation pipeline.
