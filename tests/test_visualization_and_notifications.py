@@ -112,6 +112,26 @@ def test_chart_rendering_service_creates_png(tmp_path: Path) -> None:
     assert file_path.suffix == ".png"
 
 
+def test_chart_rendering_service_creates_png_for_rejected_manual_check(tmp_path: Path) -> None:
+    """Chart renderer should still create a PNG for rejected manual checks when series exists."""
+
+    settings = build_settings(tmp_path)
+    series, _ = build_series_and_candidate()
+    result = ManualCheckResult(
+        symbol="BTCUSDT",
+        timeframe="1m",
+        status=SignalStatus.REJECTED.value,
+        summary="Не найдено валидных структур.",
+        market_series=series,
+    )
+
+    file_path = ChartRenderingService(settings).render_manual_check_chart(result)
+
+    assert file_path is not None
+    assert file_path.exists()
+    assert "1m" in file_path.name
+
+
 def test_notification_message_service_builds_manual_check_caption() -> None:
     """Notification message service should create a compact manual-check caption."""
 
