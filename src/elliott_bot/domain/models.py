@@ -67,6 +67,16 @@ class WaveDirection(StrEnum):
     SHORT = "short"
 
 
+class EventCategory(StrEnum):
+    """Represents logical categories for persistent event logs."""
+
+    SYSTEM = "system_events"
+    MARKET_DATA = "market_data_events"
+    ANALYSIS = "analysis_events"
+    NOTIFICATION = "notification_events"
+    STORAGE = "storage_events"
+
+
 @dataclass(slots=True)
 class RuntimeState:
     """Persistent runtime state stored between restarts."""
@@ -433,6 +443,8 @@ class ServiceEvent:
     module: str
     event_type: str
     message: str
+    category: EventCategory = EventCategory.SYSTEM
+    reason_code: str | None = None
     context: dict[str, Any] | None = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -441,9 +453,11 @@ class ServiceEvent:
 
         return {
             "level": self.level,
+            "category": self.category.value,
             "module": self.module,
             "event_type": self.event_type,
             "message": self.message,
+            "reason_code": self.reason_code,
             "context": self.context or {},
             "created_at": self.created_at,
         }

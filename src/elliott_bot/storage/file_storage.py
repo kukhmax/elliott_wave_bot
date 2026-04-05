@@ -13,6 +13,8 @@ from elliott_bot.shared.logging import get_logger
 class FileStorage:
     """Simple JSON file storage used for persistent bot state."""
 
+    MAX_EVENT_LOG_RECORDS = 1000
+
     def __init__(self, base_path: Path) -> None:
         self._base_path = base_path
         self._logger = get_logger(self.__class__.__name__)
@@ -78,4 +80,25 @@ class FileStorage:
         with self.event_log_path.open("a", encoding="utf-8") as file_handle:
             file_handle.write(f"{line}\n")
 
+        self._truncate_event_log_if_needed()
         self._logger.info("Appended event %s to %s", event.event_type, self.event_log_path)
+
+    def _truncate_event_log_if_needed(self) -> None:
+        """Keep the event log within the configured retention window."""
+
+        try:
+            lines = self.event_log_path.read_text(encoding="utf-8").splitlines()
+        except OSError as error:
+            self._logger.error("Failed to inspect event log retention window: %s", error)
+            return
+
+        if len(lines) <= self.MAX_EVENT_LOG_RECORDS:
+            return
+
+        trimmed_lines = lines[-self.MAX_EVENT_LOG_RECORDS :]
+        self.event_log_path.write_text("\n".join(trimmed_lines) + "\n", encoding="utf-8")
+        self._logger.warning(
+            "Event log truncated to the last %s records at %s.",
+            self.MAX_EVENT_LOG_RECORDS,
+            self.event_log_path,
+        )

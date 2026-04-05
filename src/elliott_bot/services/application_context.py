@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from elliott_bot.domain.models import PairStatus, RuntimeState, SignalRecord, WatchlistState
+from elliott_bot.domain.models import PairStatus, RuntimeState, SignalRecord, SignalStatus, WatchlistState
 from elliott_bot.orchestration.monitoring_coordinator import MonitoringCoordinator
 from elliott_bot.services.chart_rendering_service import ChartRenderingService
 from elliott_bot.services.elliott_validation_service import ElliottValidationService
@@ -74,3 +74,30 @@ class ApplicationContext:
         """Persist the current in-memory signal history."""
 
         self.signal_history_service.save(self.signal_history)
+
+    def record_signal_decision(
+        self,
+        *,
+        signal_signature: str,
+        symbol: str,
+        timeframe: str,
+        direction: str,
+        status: SignalStatus,
+        sent_to_telegram: bool,
+        duplicate_of: str | None = None,
+        suppressed_reason: str | None = None,
+    ) -> None:
+        """Append and persist a new signal-history decision record."""
+
+        self.signal_history = self.signal_history_service.register_decision(
+            self.signal_history,
+            signal_signature=signal_signature,
+            symbol=symbol,
+            timeframe=timeframe,
+            direction=direction,
+            status=status,
+            sent_to_telegram=sent_to_telegram,
+            duplicate_of=duplicate_of,
+            suppressed_reason=suppressed_reason,
+        )
+        self.persist_signal_history()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
+from elliott_bot.domain.models import EventCategory, ServiceEvent
 from elliott_bot.integrations.binance_provider import BinanceMarketDataProvider
 from elliott_bot.integrations.coinmarketcap_provider import CoinMarketCapProvider
 from elliott_bot.interfaces.telegram.bot_runtime import TelegramBotRuntime
@@ -118,11 +119,60 @@ async def run() -> None:
         settings.market_data_provider,
     )
     logger.info("Persistent state services, validation pipeline and visualization layer are ready.")
+    storage.append_event(
+        ServiceEvent(
+            level="INFO",
+            module="elliott_bot.app",
+            event_type="application_started",
+            message="Application startup sequence completed.",
+            category=EventCategory.SYSTEM,
+            context={"telegram_configured": bot is not None},
+        )
+    )
 
     if not telegram_runtime.configured:
         logger.warning("Telegram bot token is not configured. Exiting after bootstrap.")
+        storage.append_event(
+            ServiceEvent(
+                level="INFO",
+                module="elliott_bot.app",
+                event_type="application_stopped",
+                message="Application stopped after bootstrap because Telegram token is not configured.",
+                category=EventCategory.SYSTEM,
+                reason_code="telegram_not_configured",
+            )
+        )
         return
 
     dispatcher = telegram_runtime.create_dispatcher(app_context)
     logger.info("Telegram runtime is configured. Starting polling.")
-    await dispatcher.start_polling(bot)
+    try:
+        await dispatcher.start_polling(bot)
+    except Exception as error:
+        app_context.runtime_state.last_error = str(error)
+        app_context.runtime_state = app_context.runtime_state_service.mark_stopped(app_context.runtime_state)
+        app_context.runtime_state_service.save(app_context.runtime_state)
+        storage.append_event(
+            ServiceEvent(
+                level="CRITICAL",
+                module="elliott_bot.app",
+                event_type="application_crashed",
+                message="Application polling loop crashed.",
+                category=EventCategory.SYSTEM,
+                reason_code="polling_crash",
+                context={"details": str(error)},
+            )
+        )
+        raise
+    finally:
+        app_context.runtime_state = app_context.runtime_state_service.mark_stopped(app_context.runtime_state)
+        app_context.runtime_state_service.save(app_context.runtime_state)
+        storage.append_event(
+            ServiceEvent(
+                level="INFO",
+                module="elliott_bot.app",
+                event_type="application_stopped",
+                message="Application stopped and runtime state persisted.",
+                category=EventCategory.SYSTEM,
+            )
+        )

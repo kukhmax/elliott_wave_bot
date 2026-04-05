@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import FSInputFile, Message
 
-from elliott_bot.domain.models import MonitoringStatus, PairSourceOrigin, PairStatus
+from elliott_bot.domain.models import MonitoringStatus, PairSourceOrigin, PairStatus, SignalStatus
 from elliott_bot.interfaces.telegram.keyboards import (
     build_cancel_keyboard,
     build_main_menu_keyboard,
@@ -159,15 +161,31 @@ async def handle_manual_check_timeframe(message: Message, app_context: Applicati
     LOGGER.info("Manual check completed for %s on %s with status %s.", symbol, timeframe, result.status)
     caption = app_context.notification_message_service.build_manual_check_caption(result)
     chart_path = app_context.chart_rendering_service.render_manual_check_chart(result)
-    if chart_path is not None:
-        await message.answer_photo(
-            photo=FSInputFile(chart_path),
-            caption=caption,
-            reply_markup=_main_menu(app_context),
-        )
-        return
+    signal_signature = _build_manual_signal_signature(app_context, result)
+    sent_to_telegram = False
+    try:
+        if chart_path is not None:
+            await message.answer_photo(
+                photo=FSInputFile(chart_path),
+                caption=caption,
+                reply_markup=_main_menu(app_context),
+            )
+            sent_to_telegram = True
+        else:
+            await message.answer(caption, reply_markup=_main_menu(app_context))
+            sent_to_telegram = result.status != SignalStatus.REJECTED.value
+    finally:
+        _cleanup_chart_file(chart_path)
 
-    await message.answer(caption, reply_markup=_main_menu(app_context))
+    app_context.record_signal_decision(
+        signal_signature=signal_signature,
+        symbol=result.symbol,
+        timeframe=result.timeframe,
+        direction=result.best_candidate.direction.value if result.best_candidate is not None else "unknown",
+        status=SignalStatus(result.status),
+        sent_to_telegram=sent_to_telegram,
+        suppressed_reason=None if result.status != SignalStatus.REJECTED.value else result.summary,
+    )
 
 
 @router.message(F.text == "Добавить пару")
@@ -323,3 +341,25 @@ async def handle_unknown_action(message: Message, app_context: ApplicationContex
         "❓ Команда не распознана. Используйте кнопки меню или /start для возврата в главное меню.",
         reply_markup=_main_menu(app_context),
     )
+
+
+def _build_manual_signal_signature(app_context: ApplicationContext, result) -> str:
+    """Build a deterministic history signature for manual check results."""
+
+    if result.best_candidate is not None and result.validation_result is not None:
+        return app_context.notification_message_service.build_signal_signature(
+            result.best_candidate,
+            result.validation_result,
+        )
+    return f"manual:{result.symbol}:{result.timeframe}:{result.status}"
+
+
+def _cleanup_chart_file(chart_path: Path | None) -> None:
+    """Delete temporary rendered chart files after Telegram delivery."""
+
+    if chart_path is None:
+        return
+    try:
+        chart_path.unlink(missing_ok=True)
+    except OSError:
+        return
