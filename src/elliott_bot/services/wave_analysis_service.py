@@ -103,6 +103,10 @@ class WaveAnalysisService:
             return None, "too_small_structure"
 
         p0, p1, p2, p3, p4, p5 = window
+        
+        if len(series.bars) - p5.index > 20:
+            return None, "structure_too_old"
+
         if direction == WaveDirection.LONG:
             if not (p1.price > p0.price and p2.price < p1.price and p2.price > p0.price):
                 return None, "wave2_breaks_wave1_origin"
