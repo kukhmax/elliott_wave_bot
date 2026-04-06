@@ -38,9 +38,17 @@ class ChartRenderingService:
             import matplotlib.pyplot as plt
             import matplotlib.dates as mdates
             from datetime import datetime, timezone
+            from zoneinfo import ZoneInfo
 
             bars = result.market_series.bars
-            dates = [datetime.fromtimestamp(b.open_time / 1000.0, tz=timezone.utc) for b in bars]
+            tz_label = self._settings.chart_timezone
+            if tz_label == "local":
+                chart_tz = datetime.now().astimezone().tzinfo
+                tz_label = str(chart_tz)
+            else:
+                chart_tz = ZoneInfo(tz_label)
+
+            dates = [datetime.fromtimestamp(b.open_time / 1000.0, tz=chart_tz) for b in bars]
             x_values = mdates.date2num(dates)
 
             closes = [b.close for b in bars]
@@ -83,7 +91,7 @@ class ChartRenderingService:
                 axis.vlines(down_x, down_lows, down_highs, color="#EF4444", linewidth=1)
                 axis.bar(down_x, [o - c for c, o in zip(down_closes, down_opens)], bottom=down_closes, width=width, color="#EF4444", edgecolor="#EF4444")
 
-            axis.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+            axis.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M", tz=chart_tz))
             figure.autofmt_xdate()
 
             candidate = result.best_candidate

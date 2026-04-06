@@ -29,6 +29,7 @@ class AppSettings(BaseSettings):
     rate_limit_delay_ms: int = Field(default=250, alias="RATE_LIMIT_DELAY_MS")
     notifications_enabled: bool = Field(default=True, alias="NOTIFICATIONS_ENABLED")
     manual_check_explain_rejections: bool = Field(default=True, alias="MANUAL_CHECK_EXPLAIN_REJECTIONS")
+    chart_timezone: str = Field(default="local", alias="CHART_TIMEZONE")
     storage_path: Path = Field(default=Path("storage"), alias="STORAGE_PATH")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
